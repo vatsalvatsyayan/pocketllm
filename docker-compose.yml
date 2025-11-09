@@ -1,0 +1,34 @@
+# docker-compose.yml
+services:
+  model:
+    # --- dev profile: build locally using Dockerfile + build args ---
+    profiles: ["dev"]
+    build:
+      context: .
+      args:
+        MODEL_NAME: ${MODEL_NAME:-tinyllama}
+        OLLAMA_VERSION: ${OLLAMA_VERSION:-0.3.13}
+    image: ${DOCKERHUB_USERNAME:-local}/${IMAGE_REPO_NAME:-pocketllm-model}:${MODEL_TAG:-dev}
+    ports:
+      - "${HOST_PORT:-11434}:11434"
+    environment:
+      - OLLAMA_KEEP_ALIVE=5m
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 16g
+
+  model-release:
+    # --- release profile: pull a prebuilt image (no build) ---
+    profiles: ["release"]
+    image: ${DOCKERHUB_USERNAME}/${IMAGE_REPO_NAME}:${MODEL_TAG}
+    ports:
+      - "${HOST_PORT:-11434}:11434"
+    environment:
+      - OLLAMA_KEEP_ALIVE=5m
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 16g
