@@ -1,0 +1,12 @@
+**/venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.coverage
+**/.coverage.*
+**/.coveragehtml/
+**/.coverage.xml
+**/.coverage.json
+**/.coverage.yaml
+**/.coverage.yml
+**/htmlcov/
+**/test_*/
