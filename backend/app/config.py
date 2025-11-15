@@ -1,0 +1,34 @@
+from __future__ import annotations
+
+from pydantic import BaseSettings, Field
+
+
+def _split_origins(value: str | None) -> list[str] | None:
+    if not value:
+        return None
+    return [origin.strip() for origin in value.split(",") if origin.strip()]
+
+
+class Settings(BaseSettings):
+    app_name: str = Field("pocketLLM Backend", env="APP_NAME")
+    app_version: str = Field("0.1.0", env="APP_VERSION")
+    debug: bool = Field(True, env="DEBUG")
+    allowed_origins: str | None = Field(None, env="ALLOWED_ORIGINS")
+    redis_url: str = Field("redis://localhost:6379/0", env="REDIS_URL")
+    database_url: str = Field("postgresql+asyncpg://user:pass@localhost:5432/pocketllm", env="DATABASE_URL")
+    model_management_url: str = Field("http://localhost:8000/api/v1", env="MODEL_MANAGEMENT_URL")
+    jwt_secret: str = Field("replace-this-secret", env="JWT_SECRET")
+    rate_limit_global: str = Field("100/minute", env="RATE_LIMIT_GLOBAL")
+    log_level: str = Field("INFO", env="LOG_LEVEL")
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        case_sensitive = True
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.allowed_origins = _split_origins(self.allowed_origins)
+
+
+settings = Settings()
