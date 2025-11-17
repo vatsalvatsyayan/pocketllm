@@ -14,6 +14,9 @@ import { Dashboard } from './pages/Dashboard';
 import { NotFound } from './pages/NotFound';
 import { ROUTES } from './utils/constants';
 
+// Import ChatPage
+import { ChatPage } from './pages/ChatPage';
+
 /**
  * Main App component
  */
@@ -22,11 +25,32 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* Public routes */}
+          {/* ========== Public Routes ========== */}
           <Route path={ROUTES.LOGIN} element={<Login />} />
           <Route path={ROUTES.SIGNUP} element={<Signup />} />
 
-          {/* Protected routes */}
+          {/* ========== Protected Routes ========== */}
+          
+          {/* Chat Routes - Main feature */}
+          <Route
+            path={ROUTES.CHAT}
+            element={
+              <ProtectedRoute>
+                <ChatPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/chat/:sessionId"
+            element={
+              <ProtectedRoute>
+                <ChatPage />
+              </ProtectedRoute>
+            }
+          />
+
+
+          {/* Legacy Dashboard - Keep for now during migration */}
           <Route
             path={ROUTES.DASHBOARD}
             element={
@@ -36,10 +60,12 @@ function App() {
             }
           />
 
-          {/* Redirect root to dashboard */}
-          <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.DASHBOARD} replace />} />
+          {/* ========== Redirects ========== */}
+          
+          {/* Root redirect - go to chat (main feature) */}
+          <Route path={ROUTES.HOME} element={<Navigate to={ROUTES.CHAT} replace />} />
 
-          {/* 404 Not Found */}
+          {/* ========== 404 Not Found ========== */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AuthProvider>

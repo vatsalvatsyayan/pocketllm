@@ -11,7 +11,8 @@
 export const API_CONFIG = {
   BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
   TIMEOUT: 30000, // 30 seconds
-  MOCK_ENABLED: import.meta.env.VITE_MOCK_AUTH === 'true',
+  MOCK_AUTH_ENABLED: import.meta.env.VITE_MOCK_AUTH === 'true',
+  MOCK_CHAT_ENABLED: import.meta.env.VITE_MOCK_CHAT !== 'false', // Default to true for development
 } as const;
 
 /**
@@ -32,7 +33,9 @@ export const ROUTES = {
   HOME: '/',
   LOGIN: '/login',
   SIGNUP: '/signup',
-  DASHBOARD: '/dashboard',
+  CHAT: '/chat',
+  CHAT_SESSION: (sessionId: string) => `/chat/${sessionId}`,
+  DASHBOARD: '/dashboard', // Legacy - redirects to /chat
   PROFILE: '/profile',
   SETTINGS: '/settings',
   NOT_FOUND: '/404',
@@ -57,6 +60,17 @@ export const VALIDATION = {
     MIN_LENGTH: 2,
     MAX_LENGTH: 100,
   },
+} as const;
+
+/**
+ * Chat Configuration
+ */
+export const CHAT_CONFIG = {
+  MAX_MESSAGE_LENGTH: 4000, // characters
+  STREAM_TIMEOUT: 60000, // 60 seconds
+  RETRY_ATTEMPTS: 3,
+  AUTO_SCROLL_THRESHOLD: 100, // pixels from bottom
+  TYPING_INDICATOR_DELAY: 300, // ms
 } as const;
 
 /**
@@ -85,6 +99,12 @@ export const ERROR_MESSAGES = {
   NAME_REQUIRED: 'Name is required.',
   NAME_TOO_SHORT: `Name must be at least ${VALIDATION.NAME.MIN_LENGTH} characters.`,
   GENERIC_ERROR: 'Something went wrong. Please try again.',
+  // Chat errors
+  CHAT_LOAD_ERROR: 'Failed to load chat sessions.',
+  MESSAGE_SEND_ERROR: 'Failed to send message. Please try again.',
+  STREAM_ERROR: 'Connection lost. Please try again.',
+  SESSION_LOAD_ERROR: 'Failed to load chat history.',
+  MESSAGE_TOO_LONG: `Message is too long. Maximum ${CHAT_CONFIG.MAX_MESSAGE_LENGTH} characters.`,
 } as const;
 
 /**
@@ -95,6 +115,8 @@ export const SUCCESS_MESSAGES = {
   SIGNUP_SUCCESS: 'Account created successfully!',
   LOGOUT_SUCCESS: 'Successfully logged out.',
   PROFILE_UPDATED: 'Profile updated successfully.',
+  MESSAGE_SENT: 'Message sent successfully.',
+  SESSION_CREATED: 'New chat started.',
 } as const;
 
 /**

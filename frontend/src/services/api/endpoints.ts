@@ -32,10 +32,25 @@ export const USER_ENDPOINTS = {
 } as const;
 
 /**
- * LLM endpoints (placeholder for future implementation)
+ * Chat endpoints
+ */
+export const CHAT_ENDPOINTS = {
+  // Sessions
+  SESSIONS: `${BASE_URL}/chat/sessions`,
+  SESSION: (sessionId: string) => `${BASE_URL}/chat/sessions/${sessionId}`,
+  SESSION_MESSAGES: (sessionId: string) => `${BASE_URL}/chat/sessions/${sessionId}/messages`,
+  CLEAR_MESSAGES: (sessionId: string) => `${BASE_URL}/chat/sessions/${sessionId}/messages`,
+  GENERATE_TITLE: (sessionId: string) => `${BASE_URL}/chat/sessions/${sessionId}/generate-title`,
+  
+  // Messaging
+  SEND_MESSAGE: `${BASE_URL}/chat/message`,
+  STREAM_MESSAGE: `${BASE_URL}/chat/stream`,
+} as const;
+
+/**
+ * LLM endpoints (for model management)
  */
 export const LLM_ENDPOINTS = {
-  CHAT: `${BASE_URL}/llm/chat`,
   MODELS: `${BASE_URL}/llm/models`,
-  CONVERSATIONS: `${BASE_URL}/llm/conversations`,
+  MODEL_INFO: (modelId: string) => `${BASE_URL}/llm/models/${modelId}`,
 } as const;
