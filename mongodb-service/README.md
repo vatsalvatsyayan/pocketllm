@@ -2,12 +2,6 @@
 
 Dedicated microservice that owns persistence for users, chat sessions, and message history using MongoDB. It allows the FastAPI backend (or any other internal client) to interact with Mongo through a clean HTTP API or via direct repository imports during service composition.
 
-## Why a Separate Folder?
-
-- Mirrors the architecture diagram where the database layer is an independent responsibility.
-- Keeps Mongo-specific dependencies isolated from the core backend.
-- Provides a single place to evolve schemas, repositories, and data management tooling (migrations, seed jobs, analytics).
-
 ## Features
 
 - FastAPI service exposing `/users` and `/sessions` endpoints.
