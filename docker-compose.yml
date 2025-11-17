@@ -62,6 +62,23 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # MongoDB Database
+  mongo:
+    image: mongo:6-jammy
+    container_name: pocketllm-mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGODB_DB:-pocketllm}
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   # Model Management Service
   model-management:
     build:
@@ -93,6 +110,25 @@ services:
       start_period: 20s  # Give service time to start even if dependencies aren't ready
     restart: unless-stopped
 
+  # MongoDB Service (Users, Sessions, Messages)
+  mongodb-service:
+    build:
+      context: ./mongodb-service
+      dockerfile: Dockerfile
+    container_name: pocketllm-mongodb-service
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017
+      - MONGODB_DB=${MONGODB_DB:-pocketllm}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DEBUG=${DEBUG:-false}
+      - PORT=8100
+    ports:
+      - "8100:8100"
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
 volumes:
   redis_data:
   postgres_data:
+  mongo_data:

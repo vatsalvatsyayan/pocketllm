@@ -29,6 +29,15 @@ cd pocketllm
 docker compose up --build
 ```
 
+This brings up:
+
+- `model` – Dockerized Ollama model image
+- `redis` – cache for rate limiting/stream coordination
+- `postgres` – relational storage for model-management experiments
+- `mongo` – chat/auth database used by `mongodb-service`
+- `model-management` – orchestrates inference and caching
+- `mongodb-service` – owns user/session persistence on Mongo
+
 Leave this running. Open a second terminal for testing.
 
 ## Testing
