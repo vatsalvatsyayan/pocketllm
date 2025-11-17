@@ -39,7 +39,7 @@ cp env.example .env
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8100
 ```
 
-The service expects MongoDB to run locally on `mongodb://localhost:27017` by default. Update `.env` if you run Mongo elsewhere.
+By default the `.env` points to the Docker hostname `mongo` (the compose-managed Mongo container). If you run Mongo directly on your host, update `MONGODB_URI` to `mongodb://localhost:27017` before starting the service.
 
 ## Docker
 
