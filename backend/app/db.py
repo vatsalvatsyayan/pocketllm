@@ -46,11 +46,13 @@ async def lifespan(app):
     try:
         await health_check()
         database = get_database()
+        from app.repositories.messages import MessageRepository
         from app.repositories.sessions import SessionRepository
         from app.repositories.users import UserRepository
 
         await UserRepository(database).ensure_indexes()
         await SessionRepository(database).ensure_indexes()
+        await MessageRepository(database).ensure_indexes()
         yield
     finally:
         global _client, _database

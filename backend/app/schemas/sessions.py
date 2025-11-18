@@ -1,15 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field
-
-
-class Message(BaseModel):
-    role: Literal["user", "assistant", "system"]
-    content: str = Field(..., min_length=1)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class ChatSessionCreate(BaseModel):
@@ -22,11 +16,7 @@ class ChatSessionPublic(BaseModel):
     id: str
     user_id: str
     title: str
-    messages: list[Message]
     created_at: datetime
     updated_at: datetime
+    last_message_at: Optional[datetime] = None
     metadata: dict | None = None
-
-
-class SessionMessageAppend(BaseModel):
-    message: Message

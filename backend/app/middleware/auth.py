@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from jose import JWTError, jwt
 
@@ -15,7 +15,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60
 @dataclass
 class AuthPayload:
     sub: str
-    scopes: list[str]
+    scopes: List[str]
     exp: datetime
 
 
@@ -24,9 +24,9 @@ class JWTAuthenticator:
         self.secret = secret
         self.algorithm = algorithm
 
-    def create_access_token(self, subject: str, scopes: list[str] | None = None) -> str:
+    def create_access_token(self, subject: str, scopes: Optional[List[str]] = None) -> str:
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        payload: dict[str, Any] = {
+        payload: Dict[str, Any] = {
             "sub": subject,
             "scopes": scopes or [],
             "exp": expire,

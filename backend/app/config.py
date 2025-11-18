@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from pydantic import BaseSettings, Field
+from typing import List, Optional
+
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
-def _split_origins(value: str | None) -> list[str] | None:
+def _split_origins(value: Optional[str]) -> Optional[List[str]]:
     if not value:
         return None
     return [origin.strip() for origin in value.split(",") if origin.strip()]
@@ -13,7 +16,7 @@ class Settings(BaseSettings):
     app_name: str = Field("pocketLLM Backend", env="APP_NAME")
     app_version: str = Field("0.1.0", env="APP_VERSION")
     debug: bool = Field(True, env="DEBUG")
-    allowed_origins: str | None = Field(None, env="ALLOWED_ORIGINS")
+    allowed_origins: Optional[str] = Field(None, env="ALLOWED_ORIGINS")
     redis_url: str = Field("redis://localhost:6379/0", env="REDIS_URL")
     database_url: str = Field("postgresql+asyncpg://user:pass@localhost:5432/pocketllm", env="DATABASE_URL")
     model_management_url: str = Field("http://localhost:8000/api/v1", env="MODEL_MANAGEMENT_URL")
@@ -24,6 +27,7 @@ class Settings(BaseSettings):
     mongodb_db: str = Field("pocketllm", env="MONGODB_DB")
     users_collection: str = Field("users", env="MONGODB_USERS_COLLECTION")
     sessions_collection: str = Field("sessions", env="MONGODB_SESSIONS_COLLECTION")
+    messages_collection: str = Field("messages", env="MONGODB_MESSAGES_COLLECTION")
 
     class Config:
         env_file = ".env"

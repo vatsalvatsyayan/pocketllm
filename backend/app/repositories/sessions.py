@@ -4,10 +4,9 @@ from datetime import datetime
 from typing import Optional
 
 from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorDatabase
-from pymongo import ReturnDocument
 
 from app.config import settings
-from app.schemas.sessions import ChatSessionCreate, Message, SessionMessageAppend
+from app.schemas.sessions import ChatSessionCreate
 from app.utils.serializers import parse_object_id, to_public_id
 
 
@@ -15,7 +14,6 @@ def _public_session(document: dict) -> dict:
     doc = to_public_id(document)
     if "user_id" in doc:
         doc["user_id"] = str(doc["user_id"])
-    doc["messages"] = doc.get("messages", [])
     return doc
 
 
@@ -31,10 +29,10 @@ class SessionRepository:
         document = {
             "user_id": parse_object_id(payload.user_id),
             "title": payload.title or "New chat",
-            "messages": [],
             "metadata": payload.metadata or {},
             "created_at": now,
             "updated_at": now,
+            "last_message_at": None,
         }
         result = await self.collection.insert_one(document)
         document["_id"] = result.inserted_id
@@ -57,19 +55,6 @@ class SessionRepository:
         )
         return [_public_session(doc) async for doc in cursor]
 
-    async def append_message(self, session_id: str, payload: SessionMessageAppend) -> Optional[dict]:
-        object_id = parse_object_id(session_id)
-        message = payload.message.model_dump()
-        if not message.get("created_at"):
-            message["created_at"] = datetime.utcnow()
-        result = await self.collection.find_one_and_update(
-            {"_id": object_id},
-            {"$push": {"messages": message}, "$set": {"updated_at": datetime.utcnow()}},
-            return_document=ReturnDocument.AFTER,
-        )
-        if not result:
-            return None
-        return _public_session(result)
 
     async def delete_session(self, session_id: str) -> bool:
         object_id = parse_object_id(session_id)

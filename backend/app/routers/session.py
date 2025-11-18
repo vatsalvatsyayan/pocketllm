@@ -8,7 +8,6 @@ from app.repositories.sessions import SessionRepository
 from app.schemas.sessions import (
     ChatSessionCreate,
     ChatSessionPublic,
-    SessionMessageAppend,
 )
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
@@ -46,19 +45,6 @@ async def list_sessions_for_user(
 ):
     repository = SessionRepository(database)
     return await repository.list_for_user(user_id=user_id, skip=skip, limit=limit)
-
-
-@router.post("/{session_id}/messages", response_model=ChatSessionPublic)
-async def append_message(
-    session_id: str,
-    payload: SessionMessageAppend,
-    database: AsyncIOMotorDatabase = Depends(database_dependency),
-):
-    repository = SessionRepository(database)
-    document = await repository.append_message(session_id, payload)
-    if not document:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
-    return document
 
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
