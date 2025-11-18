@@ -110,22 +110,28 @@ services:
       start_period: 20s  # Give service time to start even if dependencies aren't ready
     restart: unless-stopped
 
-  # MongoDB Service (Users, Sessions, Messages)
-  mongodb-service:
+  # Backend API w Mongo
+  backend:
     build:
-      context: ./mongodb-service
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: pocketllm-mongodb-service
+    container_name: pocketllm-backend
+    ports:
+      - "9000:9000"
     environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://user:pass@postgres:5432/pocketllm
       - MONGODB_URI=mongodb://mongo:27017
       - MONGODB_DB=${MONGODB_DB:-pocketllm}
+      - MODEL_MANAGEMENT_URL=http://model-management:8000/api/v1
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - DEBUG=${DEBUG:-false}
-      - PORT=8100
-    ports:
-      - "8100:8100"
     depends_on:
+      - redis
+      - postgres
       - mongo
+      - model-management
     restart: unless-stopped
 
 volumes:

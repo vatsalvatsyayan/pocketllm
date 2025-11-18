@@ -15,6 +15,7 @@ from app.middleware import (
     register_exception_handler,
 )
 from app.routers import router as api_router
+from app.db import lifespan
 
 
 log_level = getattr(logging, settings.log_level.upper(), logging.INFO)
@@ -34,6 +35,7 @@ app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     debug=settings.debug,
+    lifespan=lifespan,
 )
 
 configure_cors(app)

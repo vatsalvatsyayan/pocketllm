@@ -30,4 +30,3 @@ class ChatSessionPublic(BaseModel):
 
 class SessionMessageAppend(BaseModel):
     message: Message
-

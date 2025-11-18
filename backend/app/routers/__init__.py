@@ -7,9 +7,9 @@ from app.routers import (
     users,
 )
 
-# TEMPORARY
+
 router = APIRouter()
-router.include_router(session.router, prefix="/sessions", tags=["session"])
-router.include_router(chat.router, prefix="/chat", tags=["chat"])
-router.include_router(auth.router, prefix="/auth", tags=["auth"])
-router.include_router(users.router, prefix="/users", tags=["users"])
+router.include_router(session.router)
+router.include_router(chat.router)
+router.include_router(auth.router)
+router.include_router(users.router)

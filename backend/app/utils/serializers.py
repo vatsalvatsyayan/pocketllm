@@ -21,4 +21,3 @@ def to_public_id(document: Mapping[str, Any]) -> Mapping[str, Any]:
     if "_id" in doc:
         doc["id"] = str(doc.pop("_id"))
     return doc
-

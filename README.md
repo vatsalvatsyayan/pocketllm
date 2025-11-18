@@ -34,9 +34,9 @@ This brings up:
 - `model` – Dockerized Ollama model image
 - `redis` – cache for rate limiting/stream coordination
 - `postgres` – relational storage for model-management experiments
-- `mongo` – chat/auth database used by `mongodb-service`
+- `mongo` – chat/auth database now consumed directly by the backend service
 - `model-management` – orchestrates inference and caching
-- `mongodb-service` – owns user/session persistence on Mongo
+- `backend` – FastAPI middleware (CORS/auth/rate limit) that owns MongoDB persistence and exposes `/api/v1` endpoints
 
 Leave this running. Open a second terminal for testing.
 

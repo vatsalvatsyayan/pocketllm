@@ -75,4 +75,3 @@ class SessionRepository:
         object_id = parse_object_id(session_id)
         result = await self.collection.delete_one({"_id": object_id})
         return result.deleted_count == 1
-

@@ -54,4 +54,3 @@ class UserRepository:
         if not document:
             return None
         return to_public_id(document)
-

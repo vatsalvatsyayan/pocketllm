@@ -25,4 +25,3 @@ class UserPublic(UserBase):
 class UserListResponse(BaseModel):
     items: list[UserPublic]
     total: int
-

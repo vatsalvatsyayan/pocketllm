@@ -3,12 +3,13 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Optional
 
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 import structlog
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 from app.config import settings
 
-logger = structlog.get_logger("mongodb-service")
+
+logger = structlog.get_logger("backend-mongodb")
 
 _client: Optional[AsyncIOMotorClient] = None
 _database: Optional[AsyncIOMotorDatabase] = None
@@ -45,7 +46,6 @@ async def lifespan(app):
     try:
         await health_check()
         database = get_database()
-        # Ensure critical indexes exist before serving traffic
         from app.repositories.sessions import SessionRepository
         from app.repositories.users import UserRepository
 
@@ -63,4 +63,3 @@ async def lifespan(app):
 async def database_dependency() -> AsyncGenerator[AsyncIOMotorDatabase, None]:
     db = get_database()
     yield db
-
