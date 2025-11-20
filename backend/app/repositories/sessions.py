@@ -6,7 +6,7 @@ from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorCollection, AsyncIOMotorDatabase
 
 from app.config import settings
-from app.schemas.sessions import ChatSessionCreate
+from app.schemas.sessions import ChatSessionCreate, ChatSessionUpdate
 from app.utils.serializers import parse_object_id, to_public_id
 
 
@@ -68,6 +68,25 @@ class SessionRepository:
     async def count_for_user(self, user_id: str) -> int:
         object_id = parse_object_id(user_id)
         return await self.collection.count_documents({"user_id": object_id})
+    async def update_session(self, session_id: str, payload: ChatSessionUpdate) -> Optional[dict]:
+        object_id = parse_object_id(session_id)
+        now = datetime.utcnow()
+        
+        update_data = payload.dict(exclude_unset=True)
+        if not update_data:
+            return await self.get_session(session_id)
+            
+        update_data["updated_at"] = now
+        
+        result = await self.collection.update_one(
+            {"_id": object_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            return None
+            
+        return await self.get_session(session_id)
 
 
     async def delete_session(self, session_id: str) -> bool:

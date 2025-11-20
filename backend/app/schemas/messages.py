@@ -5,20 +5,16 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.utils.serializers import parse_object_id
 
-
-class MessageBase(BaseModel):
-    role: Literal["user", "assistant", "system"] = Field(..., description="Message role")
+class MessageCreate(BaseModel):
+    role: Literal["user", "assistant", "system"]
     content: str
 
 
-class MessageCreate(MessageBase):
-    pass
-
-
-class MessageRead(MessageBase):
+class MessageRead(BaseModel):
     id: str
     session_id: str
     user_id: str
+    role: str
+    content: str
     created_at: datetime

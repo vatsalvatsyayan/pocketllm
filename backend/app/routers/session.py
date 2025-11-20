@@ -8,9 +8,10 @@ from app.repositories.sessions import SessionRepository
 from app.schemas.sessions import (
     ChatSessionCreate,
     ChatSessionPublic,
+    ChatSessionUpdate,
 )
 
-router = APIRouter(prefix="/sessions", tags=["Sessions"])
+router = APIRouter(prefix="/chat/sessions", tags=["Sessions"])
 
 
 @router.post("/", response_model=ChatSessionPublic, status_code=status.HTTP_201_CREATED)
@@ -27,6 +28,19 @@ async def get_session(
 ):
     repository = SessionRepository(database)
     document = await repository.get_session(session_id)
+    if not document:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    return document
+
+
+@router.patch("/{session_id}", response_model=ChatSessionPublic)
+async def update_session(
+    session_id: str,
+    payload: ChatSessionUpdate,
+    database: AsyncIOMotorDatabase = Depends(database_dependency),
+):
+    repository = SessionRepository(database)
+    document = await repository.update_session(session_id, payload)
     if not document:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
     return document
