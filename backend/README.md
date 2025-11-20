@@ -53,3 +53,11 @@ backend/
 ├── requirements.txt
 └── .env.example
 ```
+
+## Public API (consumed by frontend)
+
+| Method | Path | Description | Request | Response |
+| --- | --- | --- | --- | --- |
+| `GET` | `/api/chat/sessions` | Lists a user's chat sessions with pagination and sorting | `page`, `limit`, `sortBy`, `sortOrder` query params | `{ data: [{ id, title, createdAt, updatedAt, messageCount, lastMessage }], total, page, limit, hasMore }` |
+| `POST` | `/api/chat/sessions` | Creates an empty session | `{ title?: string }` | `{ id, userId, title, createdAt, updatedAt, messageCount }` |
+

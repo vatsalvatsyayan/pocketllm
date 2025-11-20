@@ -14,6 +14,7 @@ def _public_session(document: dict) -> dict:
     doc = to_public_id(document)
     if "user_id" in doc:
         doc["user_id"] = str(doc["user_id"])
+    doc["message_count"] = int(doc.get("message_count", 0) or 0)
     return doc
 
 
@@ -33,6 +34,7 @@ class SessionRepository:
             "created_at": now,
             "updated_at": now,
             "last_message_at": None,
+            "message_count": 0,
         }
         result = await self.collection.insert_one(document)
         document["_id"] = result.inserted_id
@@ -45,15 +47,27 @@ class SessionRepository:
             return None
         return _public_session(document)
 
-    async def list_for_user(self, user_id: str, limit: int = 20, skip: int = 0) -> list[dict]:
+    async def list_for_user(
+        self,
+        user_id: str,
+        limit: int = 20,
+        skip: int = 0,
+        sort_field: str = "updated_at",
+        sort_direction: int = -1,
+    ) -> list[dict]:
         object_id = parse_object_id(user_id)
         cursor = (
-            self.collection.find({"user_id": object_id})
+            self.collection
+            .find({"user_id": object_id})
+            .sort(sort_field, sort_direction)
             .skip(skip)
             .limit(limit)
-            .sort("updated_at", -1)
         )
         return [_public_session(doc) async for doc in cursor]
+
+    async def count_for_user(self, user_id: str) -> int:
+        object_id = parse_object_id(user_id)
+        return await self.collection.count_documents({"user_id": object_id})
 
 
     async def delete_session(self, session_id: str) -> bool:

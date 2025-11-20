@@ -1,8 +1,101 @@
-from fastapi import APIRouter
+from typing import Literal
 
-router = APIRouter()
+from fastapi import APIRouter, Depends, Query, status
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
-# TEMPORARY
-@router.get("/history")
-async def chat_history():
-    return {"status": "chat history placeholder"}
+from app.db import database_dependency
+from app.repositories.sessions import SessionRepository
+from app.schemas.sessions import (
+    ChatSessionCreate,
+    ChatSessionCreateRequest,
+    ChatSessionListResponse,
+    ChatSessionPublic,
+)
+
+
+router = APIRouter(prefix="/chat", tags=["Chat"])
+
+
+async def get_current_user_id() -> str:
+    # Placeholder until auth middleware is available
+    return "507f1f77bcf86cd799439011"
+
+
+_SORT_FIELD_MAPPING = {
+    "createdAt": "created_at",
+    "updatedAt": "updated_at",
+    "title": "title",
+}
+
+
+@router.get("/sessions", response_model=ChatSessionListResponse)
+async def list_sessions(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    sort_by: str = Query("updatedAt", regex="^(createdAt|updatedAt|title)$"),
+    sort_order: Literal["asc", "desc"] = Query("desc"),
+    user_id: str = Depends(get_current_user_id),
+    database: AsyncIOMotorDatabase = Depends(database_dependency),
+):
+    repository = SessionRepository(database)
+    skip = (page - 1) * limit
+    sort_field = _SORT_FIELD_MAPPING.get(sort_by, "updated_at")
+    sort_direction = -1 if sort_order == "desc" else 1
+
+    sessions = await repository.list_for_user(
+        user_id=user_id,
+        limit=limit,
+        skip=skip,
+        sort_field=sort_field,
+        sort_direction=sort_direction,
+    )
+    total = await repository.count_for_user(user_id)
+    has_more = skip + len(sessions) < total
+
+    return ChatSessionListResponse(
+        data=[ChatSessionPublic(**session) for session in sessions],
+        total=total,
+        page=page,
+        limit=limit,
+        has_more=has_more,
+    )
+
+
+@router.post(
+    "/sessions",
+    response_model=ChatSessionPublic,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_session(
+    payload: ChatSessionCreateRequest,
+    user_id: str = Depends(get_current_user_id),
+    database: AsyncIOMotorDatabase = Depends(database_dependency),
+):
+    repository = SessionRepository(database)
+    session = await repository.create_session(
+        ChatSessionCreate(
+            user_id=user_id,
+            title=payload.title,
+            metadata=payload.metadata,
+        )
+    )
+    return ChatSessionPublic(**session)
+
+
+@router.get(
+    "/sessions/{session_id}",
+    response_model=ChatSessionPublic,
+)
+async def get_session_detail(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+    database: AsyncIOMotorDatabase = Depends(database_dependency),
+):
+    repository = SessionRepository(database)
+    session = await repository.get_session(session_id)
+    if not session or session.get("user_id") != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+    return ChatSessionPublic(**session)

@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     jwt_secret: str = Field("replace-this-secret", env="JWT_SECRET")
     rate_limit_global: str = Field("100/minute", env="RATE_LIMIT_GLOBAL")
     log_level: str = Field("INFO", env="LOG_LEVEL")
-    mongodb_uri: str = Field("mongodb://mongo:27017", env="MONGODB_URI")
+    mongodb_uri: str = Field("mongodb://localhost:27017", env="MONGODB_URI")
     mongodb_db: str = Field("pocketllm", env="MONGODB_DB")
     users_collection: str = Field("users", env="MONGODB_USERS_COLLECTION")
     sessions_collection: str = Field("sessions", env="MONGODB_SESSIONS_COLLECTION")
@@ -33,6 +33,8 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = True
+        extra = "ignore"
+        populate_by_name = True
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

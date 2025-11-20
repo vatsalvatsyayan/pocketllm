@@ -15,6 +15,7 @@ from app.middleware import (
     register_exception_handler,
 )
 from app.routers import router as api_router
+from app.routers.chat import router as chat_router
 from app.db import lifespan
 
 
@@ -46,6 +47,7 @@ authenticator = get_authenticator()
 app.state.authenticator = authenticator
 
 app.include_router(api_router, prefix="/api/v1")
+app.include_router(chat_router, prefix="/api")
 
 
 @app.exception_handler(RateLimitExceeded)

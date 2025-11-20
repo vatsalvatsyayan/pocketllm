@@ -72,7 +72,14 @@ class MessageRepository:
         # Update session's last_message_at + updated_at
         await self.sessions.update_one(
             {"_id": session_obj_id, "user_id": user_obj_id},
-            {"$set": {"last_message_at": now, "updated_at": now}},
+            {
+                "$set": {
+                    "last_message_at": now,
+                    "updated_at": now,
+                    "last_message": payload.content,
+                },
+                "$inc": {"message_count": 1},
+            },
         )
 
         return _public_message(doc)
