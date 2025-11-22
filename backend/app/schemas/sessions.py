@@ -14,6 +14,7 @@ class ChatSessionCreate(BaseModel):
 
 class ChatSessionCreateRequest(BaseModel):
     title: Optional[str] = Field(default="New chat")
+    metadata: dict | None = None
 
 class ChatSessionUpdate(BaseModel):
     title: Optional[str] = None

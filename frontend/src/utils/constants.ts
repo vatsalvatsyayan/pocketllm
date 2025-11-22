@@ -5,11 +5,16 @@
  * Using environment variables with fallback defaults.
  */
 
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+const normalizedBaseUrl = rawBaseUrl.endsWith('/v1')
+  ? rawBaseUrl
+  : `${rawBaseUrl.replace(/\/+$/, '')}/v1`;
+
 /**
  * API Configuration
  */
 export const API_CONFIG = {
-  BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
+  BASE_URL: normalizedBaseUrl,
   TIMEOUT: 30000, // 30 seconds
   MOCK_AUTH_ENABLED: import.meta.env.VITE_MOCK_AUTH === 'true',
   MOCK_CHAT_ENABLED: import.meta.env.VITE_MOCK_CHAT !== 'false', // Default to true for development

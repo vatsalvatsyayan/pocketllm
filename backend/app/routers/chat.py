@@ -1,24 +1,24 @@
+import json
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.db import database_dependency
+from app.middleware.auth import get_current_user_id
+from app.repositories.messages import MessageRepository
 from app.repositories.sessions import SessionRepository
+from app.schemas.messages import MessageCreate, ChatStreamRequest
 from app.schemas.sessions import (
     ChatSessionCreate,
     ChatSessionCreateRequest,
     ChatSessionListResponse,
     ChatSessionPublic,
 )
-
+from app.services.model_client import stream_model_chat
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
-
-
-async def get_current_user_id() -> str:
-    # Placeholder until auth middleware is available
-    return "507f1f77bcf86cd799439011"
 
 
 _SORT_FIELD_MAPPING = {
@@ -92,10 +92,89 @@ async def get_session_detail(
     database: AsyncIOMotorDatabase = Depends(database_dependency),
 ):
     repository = SessionRepository(database)
-    session = await repository.get_session(session_id)
-    if not session or session.get("user_id") != user_id:
+    session = await repository.get_session(session_id, user_id=user_id)
+    if not session:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Session not found",
         )
     return ChatSessionPublic(**session)
+
+
+@router.post("/stream")
+async def stream_chat(
+    payload: ChatStreamRequest,
+    user_id: str = Depends(get_current_user_id),
+    database: AsyncIOMotorDatabase = Depends(database_dependency),
+):
+    session_id = payload.session_id
+    
+    # 1. Validate Session
+    session_repo = SessionRepository(database)
+    session = await session_repo.get_session(session_id, user_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # 2. Save User Message
+    message_repo = MessageRepository(database)
+    await message_repo.create_message(
+        session_id,
+        user_id,
+        MessageCreate(role="user", content=payload.prompt)
+    )
+
+    # 3. Prepare Model Request
+    model_payload = {
+        "session_id": session_id,
+        "prompt": payload.prompt,
+        "stream": True,
+        "max_tokens": 1000,
+        "temperature": 0.7
+    }
+
+    # 4. Stream and Accumulate
+    async def response_generator():
+        full_response_text = ""
+        try:
+            async for line in stream_model_chat("/inference/chat/stream", model_payload):
+                # line is a string like "data: {...}"
+                if line.strip():
+                    # Parse for accumulation and transformation
+                    if line.startswith("data: "):
+                        try:
+                            data_str = line.replace("data: ", "").strip()
+                            if data_str == "[DONE]": 
+                                continue
+                            
+                            data = json.loads(data_str)
+                            
+                            # Handle error from model service
+                            if data.get("error"):
+                                yield f"data: {json.dumps({'type': 'error', 'error': data['error']})}\n\n"
+                                return
+
+                            token = data.get("token", "")
+                            done = data.get("done", False)
+                            
+                            if token:
+                                full_response_text += token
+                                yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
+                            
+                            if done:
+                                yield f"data: {json.dumps({'type': 'end', 'messageId': payload.message_id})}\n\n"
+                                
+                        except Exception:
+                            pass
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+            return
+
+        # 5. Save Assistant Message (after stream ends)
+        if full_response_text:
+             await message_repo.create_message(
+                session_id,
+                user_id,
+                MessageCreate(role="assistant", content=full_response_text)
+            )
+
+    return StreamingResponse(response_generator(), media_type="text/event-stream")

@@ -165,119 +165,30 @@ App (BrowserRouter + AuthProvider)
         └── Dashboard content
 ```
 
-## How to Swap Mock Auth with Real API
+## How to Enable JWT Authentication
 
-The authentication system is designed with the **Dependency Inversion Principle** to make swapping implementations trivial.
+The frontend already ships with both mock and API-backed authentication implementations. The toggle is driven by `VITE_MOCK_AUTH` in `.env.local`. Set this flag to `false` and the stack will automatically switch to the JWT flow.
 
-### Current Setup (Mock)
+### What already exists
+- `src/services/auth/apiAuthService.ts` is wired to the backend `/auth/*` endpoints and returns the JWT token plus user metadata.
+- `src/services/auth/index.ts` reads `API_CONFIG.MOCK_AUTH_ENABLED` and exports either the mock service or the API service accordingly.
+- `AuthContext`, hooks, and routes all depend on the shared `authService`, so no code changes are required once the flag is flipped.
 
-```typescript
-// src/services/auth/index.ts
-import { mockAuthService } from './mockAuthService';
-
-export const authService = mockAuthService;
+### Environment setup
+```env
+VITE_API_BASE_URL=http://localhost:9000/api/v1
+VITE_MOCK_AUTH=false
 ```
 
-### Steps to Integrate Real API
+### Backend expectations
+Login, signup, refresh, and profile endpoints are available under `/auth`:
 
-1. **Create the real API service**:
-
-   Create `src/services/auth/apiAuthService.ts`:
-
-   ```typescript
-   import { IAuthService } from './authService.interface';
-   import { apiClient } from '../api/apiClient';
-   import { AUTH_ENDPOINTS } from '../api/endpoints';
-
-   export class ApiAuthService implements IAuthService {
-     async login(credentials: LoginCredentials): Promise<AuthResponse> {
-       const response = await apiClient.post(
-         AUTH_ENDPOINTS.LOGIN,
-         credentials
-       );
-       return response;
-     }
-
-     async signup(credentials: SignupCredentials): Promise<AuthResponse> {
-       const response = await apiClient.post(
-         AUTH_ENDPOINTS.SIGNUP,
-         credentials
-       );
-       return response;
-     }
-
-     async logout(): Promise<void> {
-       await apiClient.post(AUTH_ENDPOINTS.LOGOUT);
-     }
-
-     async validateToken(token: string): Promise<TokenValidationResponse> {
-       const response = await apiClient.post(
-         AUTH_ENDPOINTS.VALIDATE,
-         { token }
-       );
-       return response;
-     }
-
-     async refreshToken(refreshToken: string): Promise<AuthResponse> {
-       const response = await apiClient.post(
-         AUTH_ENDPOINTS.REFRESH,
-         { refreshToken }
-       );
-       return response;
-     }
-   }
-
-   export const apiAuthService = new ApiAuthService();
-   ```
-
-2. **Update the export** in `src/services/auth/index.ts`:
-
-   ```typescript
-   // Comment out mock service
-   // import { mockAuthService } from './mockAuthService';
-
-   // Import real API service
-   import { apiAuthService } from './apiAuthService';
-
-   // Change export
-   export const authService = apiAuthService;
-   ```
-
-3. **Update environment variables** in `.env.local`:
-
-   ```env
-   VITE_API_BASE_URL=https://your-backend-api.com/api
-   VITE_MOCK_AUTH=false
-   ```
-
-4. **That's it!** No changes needed in components, context, or pages.
-
-### API Contracts
-
-The backend should match these TypeScript interfaces:
-
-**Login Request:**
-```typescript
-{
-  email: string;
-  password: string;
-  rememberMe?: boolean;
-}
-```
-
-**Signup Request:**
-```typescript
-{
-  name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-}
-```
-
-**Auth Response:**
-```typescript
-{
+| Method | Path | Description |
+| --- | --- | --- |
+| POST | `/auth/login` | Accepts `{ email, password }`, returns `{ token, expiresIn, user }` |
+| POST | `/auth/signup` | Accepts `{ name, email, password }`, returns the same payload as login |
+| POST | `/auth/refresh` | Issues a new JWT for the current bearer token |
+| GET  | `/auth/me` | Returns `{ user }` for token validation |
   token: string;
   user: {
     id: string;

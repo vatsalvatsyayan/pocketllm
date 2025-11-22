@@ -40,9 +40,12 @@ class SessionRepository:
         document["_id"] = result.inserted_id
         return _public_session(document)
 
-    async def get_session(self, session_id: str) -> Optional[dict]:
+    async def get_session(self, session_id: str, user_id: str | None = None) -> Optional[dict]:
         object_id = parse_object_id(session_id)
-        document = await self.collection.find_one({"_id": object_id})
+        filter_criteria = {"_id": object_id}
+        if user_id:
+            filter_criteria["user_id"] = parse_object_id(user_id)
+        document = await self.collection.find_one(filter_criteria)
         if not document:
             return None
         return _public_session(document)
@@ -68,28 +71,40 @@ class SessionRepository:
     async def count_for_user(self, user_id: str) -> int:
         object_id = parse_object_id(user_id)
         return await self.collection.count_documents({"user_id": object_id})
-    async def update_session(self, session_id: str, payload: ChatSessionUpdate) -> Optional[dict]:
+    async def update_session(
+        self,
+        session_id: str,
+        payload: ChatSessionUpdate,
+        user_id: str | None = None,
+    ) -> Optional[dict]:
         object_id = parse_object_id(session_id)
         now = datetime.utcnow()
-        
+
         update_data = payload.dict(exclude_unset=True)
         if not update_data:
-            return await self.get_session(session_id)
-            
+            return await self.get_session(session_id, user_id)
+
         update_data["updated_at"] = now
-        
+
+        filter_criteria = {"_id": object_id}
+        if user_id:
+            filter_criteria["user_id"] = parse_object_id(user_id)
+
         result = await self.collection.update_one(
-            {"_id": object_id},
+            filter_criteria,
             {"$set": update_data}
         )
-        
+
         if result.matched_count == 0:
             return None
-            
-        return await self.get_session(session_id)
+
+        return await self.get_session(session_id, user_id)
 
 
-    async def delete_session(self, session_id: str) -> bool:
+    async def delete_session(self, session_id: str, user_id: str | None = None) -> bool:
         object_id = parse_object_id(session_id)
-        result = await self.collection.delete_one({"_id": object_id})
+        filter_criteria = {"_id": object_id}
+        if user_id:
+            filter_criteria["user_id"] = parse_object_id(user_id)
+        result = await self.collection.delete_one(filter_criteria)
         return result.deleted_count == 1

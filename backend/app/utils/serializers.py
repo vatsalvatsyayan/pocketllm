@@ -20,4 +20,5 @@ def to_public_id(document: Mapping[str, Any]) -> Mapping[str, Any]:
     doc = dict(document)
     if "_id" in doc:
         doc["id"] = str(doc.pop("_id"))
+    doc.pop("password_hash", None)
     return doc

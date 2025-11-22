@@ -12,18 +12,22 @@
  * Current implementation: MOCK (for development)
  */
 
+import { API_CONFIG } from '../../utils/constants';
+import { apiAuthService } from './apiAuthService';
 import { mockAuthService } from './mockAuthService';
-// TODO: Import real API service when ready
-// import { apiAuthService } from './apiAuthService';
 
 /**
  * Active authentication service
- * Change this export to switch implementations
  */
-export const authService = mockAuthService;
+export const authService = API_CONFIG.MOCK_AUTH_ENABLED
+	? mockAuthService
+	: apiAuthService;
 
-// When real API is ready, uncomment this line and comment out the above:
-// export const authService = apiAuthService;
+if (API_CONFIG.MOCK_AUTH_ENABLED) {
+	console.log('🎭 Using MOCK auth service (development)');
+} else {
+	console.log('🔐 Using REAL auth service (JWT)');
+}
 
 /**
  * Export the interface for type safety

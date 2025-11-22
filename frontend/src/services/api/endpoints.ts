@@ -17,7 +17,7 @@ export const AUTH_ENDPOINTS = {
   SIGNUP: `${BASE_URL}/auth/signup`,
   LOGOUT: `${BASE_URL}/auth/logout`,
   REFRESH: `${BASE_URL}/auth/refresh`,
-  VALIDATE: `${BASE_URL}/auth/validate`,
+  ME: `${BASE_URL}/auth/me`,
   PASSWORD_RESET_REQUEST: `${BASE_URL}/auth/password-reset`,
   PASSWORD_RESET_CONFIRM: `${BASE_URL}/auth/password-reset/confirm`,
 } as const;

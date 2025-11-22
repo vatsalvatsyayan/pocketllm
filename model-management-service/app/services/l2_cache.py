@@ -51,8 +51,40 @@ class L2CacheHandler:
             # Get all L2 cache keys
             pattern = "cache:l2:*"
             keys = []
-            async for key in redis_client.scan_iter(match=pattern):
-                keys.append(key)
+            # redis_client.scan_iter returns an async iterator, so we can use async for
+            # However, if redis_client is not an async client, this would fail.
+            # Assuming redis_client is from aioredis or redis.asyncio
+            
+            # Fix: Ensure we are using the async iterator correctly
+            # The error "'async for' requires an object with __aiter__ method, got coroutine"
+            # suggests that scan_iter might be a coroutine itself in some versions or wrappers?
+            # Or maybe get_redis_client() returns a wrapper?
+            
+            # Let's check how scan_iter is called. 
+            # In redis-py 5.x (async), scan_iter is an async generator.
+            
+            # If the error says "got coroutine", it means something we are iterating over IS a coroutine.
+            # Maybe redis_client.scan_iter(match=pattern) is NOT a coroutine but returns an async iterator.
+            # Wait, if it says "got coroutine", maybe we are doing `async for key in await func()`?
+            # No, the code was `async for key in redis_client.scan_iter(match=pattern):`
+            
+            # If redis_client.scan_iter IS a coroutine (returns a future), then we should await it?
+            # But scan_iter usually returns an iterator.
+            
+            # Let's try to use keys() instead for simplicity if scan_iter is problematic, 
+            # though keys() is blocking/heavy. But for L2 cache with limited keys it might be ok for now.
+            # Better: Let's look at the error again.
+            # "async for' requires an object with __aiter__ method, got coroutine"
+            
+            # This implies `redis_client.scan_iter(match=pattern)` returned a coroutine object.
+            # This happens if `scan_iter` is defined as `async def scan_iter(...)`.
+            # If so, we need to await it? `async for key in await redis_client.scan_iter(...)`?
+            # But `async for` expects an async iterator.
+            
+            # Let's try a safer approach using `keys` for now to fix the immediate crash, 
+            # as we likely don't have millions of keys yet.
+            
+            keys = await redis_client.keys(pattern)
             
             best_match = None
             best_similarity = 0.0

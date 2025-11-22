@@ -2,14 +2,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
 from app.config import settings
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS_TOKEN_EXPIRE_SECONDS = ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
 
 @dataclass
@@ -24,7 +27,7 @@ class JWTAuthenticator:
         self.secret = secret
         self.algorithm = algorithm
 
-    def create_access_token(self, subject: str, scopes: Optional[List[str]] = None) -> str:
+    def create_access_token(self, subject: str, scopes: List[str] | None = None) -> str:
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         payload: Dict[str, Any] = {
             "sub": subject,
@@ -45,8 +48,37 @@ class JWTAuthenticator:
                 exp=datetime.utcfromtimestamp(int(exp_ts)),
             )
         except JWTError as exc:
-            raise ValueError("Invalid token") from exc
+            raise ValueError("Invalid or expired token") from exc
+
+
+authenticator = JWTAuthenticator(settings.jwt_secret)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
 def get_authenticator() -> JWTAuthenticator:
-    return JWTAuthenticator(settings.jwt_secret)
+    return authenticator
+
+
+def decode_access_token(token: str = Depends(oauth2_scheme)) -> AuthPayload:
+    try:
+        return authenticator.decode_token(token)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+
+def get_current_user(payload: AuthPayload = Depends(decode_access_token)) -> AuthPayload:
+    if not payload.sub:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return payload
+
+
+def get_current_user_id(payload: AuthPayload = Depends(get_current_user)) -> str:
+    return payload.sub

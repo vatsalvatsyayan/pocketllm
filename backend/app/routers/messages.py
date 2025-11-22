@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.db import database_dependency
+from app.middleware.auth import get_current_user_id
 from app.repositories.messages import MessageRepository
 from app.repositories.sessions import SessionRepository
 from app.schemas.messages import MessageCreate, MessageRead
@@ -14,13 +15,6 @@ router = APIRouter(
     prefix="/sessions/{session_id}/messages",
     tags=["messages"],
 )
-
-
-# In a real app, use your auth middleware here
-async def get_current_user_id() -> str:
-    # This is a placeholder - replace with actual auth middleware
-    # In production, this would extract user ID from JWT token
-    return "507f1f77bcf86cd799439011"
 
 
 @router.get("", response_model=List[dict])
@@ -35,8 +29,8 @@ async def list_messages(
     sessions_repo = SessionRepository(database)
 
     # Ensure session belongs to this user
-    session = await sessions_repo.get_session(session_id)
-    if not session or session.get("user_id") != user_id:
+    session = await sessions_repo.get_session(session_id, user_id=user_id)
+    if not session:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Session not found",
@@ -61,8 +55,8 @@ async def create_message(
     sessions_repo = SessionRepository(database)
 
     # Ensure session belongs to this user
-    session = await sessions_repo.get_session(session_id)
-    if not session or session.get("user_id") != user_id:
+    session = await sessions_repo.get_session(session_id, user_id=user_id)
+    if not session:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Session not found",
