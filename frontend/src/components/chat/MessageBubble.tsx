@@ -71,7 +71,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
         {/* Message Text */}
         <div className="whitespace-pre-wrap break-words">
-          {message.content || (isStreaming && '...')}
+          {message.content || (isStreaming && '(thinking)')}
         </div>
 
         {/* Streaming Indicator */}

@@ -49,10 +49,32 @@ async def lifespan(app):
         from app.repositories.messages import MessageRepository
         from app.repositories.sessions import SessionRepository
         from app.repositories.users import UserRepository
+        from app.utils.security import hash_password
+        from datetime import datetime
 
         await UserRepository(database).ensure_indexes()
         await SessionRepository(database).ensure_indexes()
         await MessageRepository(database).ensure_indexes()
+        
+        # Create demo user if it doesn't exist
+        user_repo = UserRepository(database)
+        demo_email = "demo@pocketllm.com"
+        existing_user = await user_repo.find_by_email(demo_email)
+        if not existing_user:
+            from app.schemas.users import UserCreate
+            password_hash = hash_password("demo123")
+            await user_repo.create_user(
+                UserCreate(
+                    email=demo_email,
+                    name="Demo User",
+                    avatar=None,
+                    password_hash=password_hash,
+                )
+            )
+            logger.info("Demo user created", email=demo_email)
+        else:
+            logger.debug("Demo user already exists", email=demo_email)
+        
         yield
     finally:
         global _client, _database

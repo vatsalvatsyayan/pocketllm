@@ -68,8 +68,8 @@ export const LoginForm: React.FC = () => {
     try {
       await login({ email, password, rememberMe });
 
-      // Get the page they tried to visit before login, or default to dashboard
-      const from = (location.state as any)?.from?.pathname || ROUTES.DASHBOARD;
+      // Get the page they tried to visit before login, or default to chat
+      const from = (location.state as any)?.from?.pathname || ROUTES.CHAT;
       navigate(from, { replace: true });
     } catch (error) {
       setErrorMessage(

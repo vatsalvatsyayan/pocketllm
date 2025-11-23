@@ -124,27 +124,42 @@ async def health_check():
         health_status["checks"]["redis"] = f"unavailable (placeholder mode): {str(e)}"
         health_status["status"] = "degraded"
     
-    # Check PostgreSQL
+    # Check PostgreSQL (only if DATABASE_URL is configured)
     try:
-        from app.services.database import get_db_session, PlaceholderSession
-        from sqlalchemy import text
-        async for session in get_db_session():
-            if isinstance(session, PlaceholderSession):
-                health_status["checks"]["postgresql"] = "unavailable (placeholder mode)"
+        from app.config import settings
+        db_url = settings.DATABASE_URL.strip() if settings.DATABASE_URL else ""
+        if not db_url or db_url == "":
+            health_status["checks"]["postgresql"] = "unavailable (placeholder mode)"
+            health_status["status"] = "degraded"
+        else:
+            # Only check if connection string is valid
+            if not db_url.startswith(("postgresql://", "postgresql+asyncpg://")):
+                health_status["checks"]["postgresql"] = "unavailable (invalid URL format)"
                 health_status["status"] = "degraded"
             else:
+                from app.services.database import get_db_session, PlaceholderSession
+                from sqlalchemy import text
                 try:
-                    # Quick test with timeout
-                    import asyncio
-                    await asyncio.wait_for(session.execute(text("SELECT 1")), timeout=2.0)
-                    health_status["checks"]["postgresql"] = "healthy"
-                except asyncio.TimeoutError:
-                    health_status["checks"]["postgresql"] = "unavailable (timeout)"
-                    health_status["status"] = "degraded"
+                    async for session in get_db_session():
+                        if isinstance(session, PlaceholderSession):
+                            health_status["checks"]["postgresql"] = "unavailable (placeholder mode)"
+                            health_status["status"] = "degraded"
+                        else:
+                            try:
+                                # Quick test with timeout
+                                import asyncio
+                                await asyncio.wait_for(session.execute(text("SELECT 1")), timeout=2.0)
+                                health_status["checks"]["postgresql"] = "healthy"
+                            except asyncio.TimeoutError:
+                                health_status["checks"]["postgresql"] = "unavailable (timeout)"
+                                health_status["status"] = "degraded"
+                            except Exception as e:
+                                health_status["checks"]["postgresql"] = f"unavailable: {str(e)}"
+                                health_status["status"] = "degraded"
+                        break
                 except Exception as e:
                     health_status["checks"]["postgresql"] = f"unavailable: {str(e)}"
                     health_status["status"] = "degraded"
-            break
     except Exception as e:
         health_status["checks"]["postgresql"] = f"unavailable (placeholder mode): {str(e)}"
         health_status["status"] = "degraded"

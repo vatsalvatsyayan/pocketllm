@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -9,14 +10,14 @@ from app.db import database_dependency
 from app.middleware.auth import get_current_user_id
 from app.repositories.messages import MessageRepository
 from app.repositories.sessions import SessionRepository
-from app.schemas.messages import MessageCreate, ChatStreamRequest
+from app.schemas.messages import MessageCreate, ChatStreamRequest, ChatMessageRequest
 from app.schemas.sessions import (
     ChatSessionCreate,
     ChatSessionCreateRequest,
     ChatSessionListResponse,
     ChatSessionPublic,
 )
-from app.services.model_client import stream_model_chat
+from app.services.model_client import stream_model_chat, ask_model_management
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -101,6 +102,41 @@ async def get_session_detail(
     return ChatSessionPublic(**session)
 
 
+@router.get("/sessions/{session_id}/messages")
+async def get_session_messages(
+    session_id: str,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    user_id: str = Depends(get_current_user_id),
+    database: AsyncIOMotorDatabase = Depends(database_dependency),
+):
+    """Get messages for a specific chat session."""
+    messages_repo = MessageRepository(database)
+    sessions_repo = SessionRepository(database)
+
+    # Ensure session belongs to this user
+    session = await sessions_repo.get_session(session_id, user_id=user_id)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+
+    messages = await messages_repo.list_messages(
+        session_id=session_id,
+        user_id=user_id,
+        limit=limit,
+        offset=offset,
+    )
+    
+    # Return format expected by frontend
+    return {
+        "sessionId": session_id,
+        "messages": messages,
+        "total": len(messages),  # Note: This is approximate, could add count query if needed
+    }
+
+
 @router.post("/stream")
 async def stream_chat(
     payload: ChatStreamRequest,
@@ -178,3 +214,69 @@ async def stream_chat(
             )
 
     return StreamingResponse(response_generator(), media_type="text/event-stream")
+
+
+@router.post("/message")
+async def send_message(
+    payload: ChatMessageRequest,
+    user_id: str = Depends(get_current_user_id),
+    database: AsyncIOMotorDatabase = Depends(database_dependency),
+):
+    """Non-streaming chat endpoint."""
+    session_id = payload.session_id
+    
+    # 1. Validate Session
+    session_repo = SessionRepository(database)
+    session = await session_repo.get_session(session_id, user_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # 2. Save User Message
+    message_repo = MessageRepository(database)
+    await message_repo.create_message(
+        session_id,
+        user_id,
+        MessageCreate(role="user", content=payload.prompt)
+    )
+
+    # 3. Prepare Model Request
+    model_payload = {
+        "session_id": session_id,
+        "prompt": payload.prompt,
+        "stream": False,
+        "temperature": payload.temperature,
+    }
+    if payload.max_tokens:
+        model_payload["max_tokens"] = payload.max_tokens
+
+    # 4. Call Model Management Service
+    try:
+        response = await ask_model_management("/inference/chat", model_payload)
+        
+        # Extract response text
+        response_text = response.get("response", "")
+        if not response_text:
+            raise HTTPException(
+                status_code=500,
+                detail="Empty response from model service"
+            )
+        
+        # 5. Save Assistant Message
+        await message_repo.create_message(
+            session_id,
+            user_id,
+            MessageCreate(role="assistant", content=response_text)
+        )
+        
+        return {
+            "messageId": f"msg-{datetime.now().timestamp()}",
+            "sessionId": session_id,
+            "content": response_text,
+            "role": "assistant",
+            "timestamp": datetime.now().isoformat(),
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get response from model: {str(e)}"
+        )

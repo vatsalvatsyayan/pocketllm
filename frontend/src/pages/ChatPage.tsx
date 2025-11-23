@@ -68,12 +68,13 @@ export const ChatPage: React.FC = () => {
       return;
     }
 
+    // Clear messages immediately when session changes to prevent showing stale data
+    setMessages([]);
+    setCurrentSession(null);
+    setError(null);
+
     if (sessionId) {
       loadSession(sessionId);
-    } else {
-      // No session selected - clear messages
-      setCurrentSession(null);
-      setMessages([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, isCreatingSession]);
@@ -103,30 +104,58 @@ export const ChatPage: React.FC = () => {
    * Load specific session and its messages
    */
   const loadSession = async (sid: string) => {
+    // Verify we're still on the same session (prevent race conditions)
+    if (sessionId !== sid) {
+      console.log('Session changed during load, aborting', { requested: sid, current: sessionId });
+      return;
+    }
+
     setIsLoadingMessages(true);
     setError(null);
+    // Clear messages before loading to prevent showing stale data
+    setMessages([]);
 
     try {
       // Load session details
       const session = await chatService.getSession(sid);
+      
+      // Double-check session hasn't changed
+      if (sessionId !== sid) {
+        console.log('Session changed after loading session details, aborting');
+        return;
+      }
+      
       setCurrentSession(session);
 
       // Load messages
       const response = await chatService.getMessages(sid);
-      setMessages(response.messages);
+      
+      // Triple-check session hasn't changed
+      if (sessionId !== sid) {
+        console.log('Session changed after loading messages, ignoring results');
+        return;
+      }
+      
+      setMessages(response.messages || []);
     } catch (err) {
       logError(err, 'Load session');
       
-      // If session not found, silently redirect (common with mock storage after refresh)
-      if ((err as any).message?.includes('not found') || (err as any).statusCode === 404) {
-        console.log('Session not found, redirecting to /chat');
-        navigate(ROUTES.CHAT, { replace: true });
-      } else {
-        // Show error only for other issues
-        setError(ERROR_MESSAGES.SESSION_LOAD_ERROR);
+      // Only update error if we're still on the same session
+      if (sessionId === sid) {
+        // If session not found, silently redirect (common with mock storage after refresh)
+        if ((err as any).message?.includes('not found') || (err as any).statusCode === 404) {
+          console.log('Session not found, redirecting to /chat');
+          navigate(ROUTES.CHAT, { replace: true });
+        } else {
+          // Show error only for other issues
+          setError(ERROR_MESSAGES.SESSION_LOAD_ERROR);
+        }
       }
     } finally {
-      setIsLoadingMessages(false);
+      // Only update loading state if we're still on the same session
+      if (sessionId === sid) {
+        setIsLoadingMessages(false);
+      }
     }
   };
 

@@ -24,3 +24,10 @@ class ChatStreamRequest(BaseModel):
     session_id: str = Field(..., alias="sessionId")
     prompt: str
     message_id: Optional[str] = Field(None, alias="messageId")
+
+
+class ChatMessageRequest(BaseModel):
+    session_id: str = Field(..., alias="sessionId")
+    prompt: str
+    temperature: Optional[float] = 0.7
+    max_tokens: Optional[int] = None

@@ -20,7 +20,7 @@ import {
 } from '../../types/chat.types';
 import { apiClient } from '../api/apiClient';
 import { CHAT_ENDPOINTS } from '../api/endpoints';
-import { handleApiError } from '../../utils/errorHandler';
+import { handleApiError, createApiError } from '../../utils/errorHandler';
 import { ERROR_MESSAGES } from '../../utils/constants';
 
 /**
@@ -45,7 +45,8 @@ class ChatService {
       
       return response;
     } catch (error) {
-      throw handleApiError(error, ERROR_MESSAGES.CHAT_LOAD_ERROR);
+      const message = handleApiError(error) || ERROR_MESSAGES.CHAT_LOAD_ERROR;
+      throw createApiError('CHAT_LOAD_ERROR', message);
     }
   }
 
@@ -59,7 +60,8 @@ class ChatService {
       );
       return response;
     } catch (error) {
-      throw handleApiError(error, ERROR_MESSAGES.SESSION_LOAD_ERROR);
+      const message = handleApiError(error) || ERROR_MESSAGES.SESSION_LOAD_ERROR;
+      throw createApiError('SESSION_LOAD_ERROR', message);
     }
   }
 
@@ -74,7 +76,8 @@ class ChatService {
       );
       return response;
     } catch (error) {
-      throw handleApiError(error, 'Failed to create chat session.');
+      const message = handleApiError(error) || 'Failed to create chat session.';
+      throw createApiError('SESSION_CREATE_ERROR', message);
     }
   }
 
@@ -92,7 +95,8 @@ class ChatService {
       );
       return response;
     } catch (error) {
-      throw handleApiError(error, 'Failed to update session.');
+      const message = handleApiError(error) || 'Failed to update session.';
+      throw createApiError('SESSION_UPDATE_ERROR', message);
     }
   }
 
@@ -103,7 +107,8 @@ class ChatService {
     try {
       await apiClient.delete(CHAT_ENDPOINTS.SESSION(sessionId));
     } catch (error) {
-      throw handleApiError(error, 'Failed to delete session.');
+      const message = handleApiError(error) || 'Failed to delete session.';
+      throw createApiError('SESSION_DELETE_ERROR', message);
     }
   }
 
@@ -117,7 +122,8 @@ class ChatService {
       );
       return response;
     } catch (error) {
-      throw handleApiError(error, ERROR_MESSAGES.SESSION_LOAD_ERROR);
+      const message = handleApiError(error) || ERROR_MESSAGES.SESSION_LOAD_ERROR;
+      throw createApiError('SESSION_LOAD_ERROR', message);
     }
   }
 
@@ -145,7 +151,8 @@ class ChatService {
     try {
       await apiClient.delete(CHAT_ENDPOINTS.CLEAR_MESSAGES(sessionId));
     } catch (error) {
-      throw handleApiError(error, 'Failed to clear messages.');
+      const message = handleApiError(error) || 'Failed to clear messages.';
+      throw createApiError('CLEAR_MESSAGES_ERROR', message);
     }
   }
 
@@ -154,7 +161,7 @@ class ChatService {
    * Note: In real API, messages are typically saved on the backend during streaming
    * This method is mainly for mock service compatibility
    */
-  async addMessage(message: ChatMessage): Promise<void> {
+  async addMessage(_message: ChatMessage): Promise<void> {
     // In real implementation, backend handles message persistence
     // This is a no-op for real API, but keeps interface consistent with mock
     return Promise.resolve();

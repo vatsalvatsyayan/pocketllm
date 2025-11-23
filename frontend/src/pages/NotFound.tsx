@@ -40,7 +40,7 @@ export const NotFound: React.FC = () => {
           </Button>
           <Button
             variant="primary"
-            onClick={() => navigate(ROUTES.DASHBOARD)}
+            onClick={() => navigate(ROUTES.CHAT)}
             className="flex items-center gap-2"
           >
             <Home size={18} />

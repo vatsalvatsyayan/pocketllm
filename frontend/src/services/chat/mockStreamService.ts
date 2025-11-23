@@ -5,8 +5,6 @@
  * Provides token-by-token streaming like a real LLM.
  */
 
-import { StreamChunk } from '../../types/chat.types';
-
 /**
  * Mock streaming function
  * Simulates SSE streaming by sending tokens one at a time

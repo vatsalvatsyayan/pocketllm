@@ -91,8 +91,8 @@ export const SignupForm: React.FC = () => {
         confirmPassword: formData.confirmPassword,
       });
 
-      // Navigate to dashboard after successful signup
-      navigate(ROUTES.DASHBOARD, { replace: true });
+      // Navigate to chat after successful signup
+      navigate(ROUTES.CHAT, { replace: true });
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : 'Signup failed. Please try again.'

@@ -5,11 +5,12 @@ import httpx
 from app.config import settings
 
 
-def ask_model_management(endpoint: str, payload: dict[str, Any]) -> Any:
+async def ask_model_management(endpoint: str, payload: dict[str, Any]) -> Any:
     url = f"{settings.model_management_url}{endpoint}"
-    response = httpx.post(url, json=payload, timeout=10.0)
-    response.raise_for_status()
-    return response.json()
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(url, json=payload)
+        response.raise_for_status()
+        return response.json()
 
 
 async def stream_model_chat(endpoint: str, payload: dict[str, Any]) -> AsyncGenerator[str, None]:

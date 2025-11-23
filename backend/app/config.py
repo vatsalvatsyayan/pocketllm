@@ -18,7 +18,6 @@ class Settings(BaseSettings):
     debug: bool = Field(True, env="DEBUG")
     allowed_origins: Optional[str] = Field(None, env="ALLOWED_ORIGINS")
     redis_url: str = Field("redis://localhost:6379/0", env="REDIS_URL")
-    database_url: str = Field("postgresql+asyncpg://user:pass@localhost:5432/pocketllm", env="DATABASE_URL")
     model_management_url: str = Field("http://localhost:8000/api/v1", env="MODEL_MANAGEMENT_URL")
     jwt_secret: str = Field("replace-this-secret", env="JWT_SECRET")
     rate_limit_global: str = Field("100/minute", env="RATE_LIMIT_GLOBAL")

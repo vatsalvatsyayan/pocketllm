@@ -43,7 +43,7 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # PostgreSQL Database
+  # PostgreSQL Database (Optional - only used if DATABASE_URL is set in model-management)
   postgres:
     image: postgres:15-alpine
     container_name: pocketllm-postgres
@@ -56,10 +56,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user}"]
+      # Check PostgreSQL is ready and the target database exists
+      # Uses postgres database (always exists) for connection, then verifies target DB
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d postgres && psql -U ${POSTGRES_USER:-user} -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname='${POSTGRES_DB:-pocketllm}'\" | grep -q 1"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 15s
     restart: unless-stopped
 
   # MongoDB Database
@@ -77,6 +80,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     restart: unless-stopped
 
   # Model Management Service
@@ -100,8 +104,9 @@ services:
     # Soft dependencies - service can start in degraded mode if dependencies aren't ready
     depends_on:
       - redis
-      - postgres
       - model
+      # Note: postgres dependency removed since DATABASE_URL is empty by default
+      # Add back if you enable PostgreSQL: depends_on: - postgres
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -120,18 +125,48 @@ services:
       - "9000:9000"
     environment:
       - REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=postgresql+asyncpg://user:pass@postgres:5432/pocketllm
       - MONGODB_URI=mongodb://mongo:27017
       - MONGODB_DB=${MONGODB_DB:-pocketllm}
       - MODEL_MANAGEMENT_URL=http://model-management:8000/api/v1
       - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - DEBUG=${DEBUG:-false}
+      - ALLOWED_ORIGINS=http://localhost:5173,http://localhost:80,http://frontend:80
     depends_on:
-      - redis
-      - postgres
-      - mongo
-      - model-management
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      model-management:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  # Frontend (React + Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:9000/api
+        VITE_MOCK_AUTH: "false"
+        VITE_MOCK_CHAT: "false"
+    container_name: pocketllm-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
 volumes:

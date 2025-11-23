@@ -12,7 +12,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
-import { ChatMessage, StreamChunk } from '../types/chat.types';
+import { StreamChunk } from '../types/chat.types';
 import { CHAT_ENDPOINTS } from '../services/api/endpoints';
 import { getToken } from '../services/storage/tokenStorage';
 import { ERROR_MESSAGES, CHAT_CONFIG, API_CONFIG } from '../utils/constants';

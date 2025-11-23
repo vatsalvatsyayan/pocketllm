@@ -10,7 +10,6 @@ import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
-import { Dashboard } from './pages/Dashboard';
 import { NotFound } from './pages/NotFound';
 import { ROUTES } from './utils/constants';
 
@@ -50,14 +49,10 @@ function App() {
           />
 
 
-          {/* Legacy Dashboard - Keep for now during migration */}
+          {/* Legacy Dashboard - Redirect to chat */}
           <Route
             path={ROUTES.DASHBOARD}
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
+            element={<Navigate to={ROUTES.CHAT} replace />}
           />
 
           {/* ========== Redirects ========== */}

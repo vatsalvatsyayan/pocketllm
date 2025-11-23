@@ -40,25 +40,36 @@ def _init_db_engine():
         return
     
     # If DATABASE_URL is empty or invalid, use placeholder mode
-    if not settings.DATABASE_URL or settings.DATABASE_URL.strip() == "":
+    db_url = settings.DATABASE_URL.strip() if settings.DATABASE_URL else ""
+    if not db_url or db_url == "":
         logger.info("DATABASE_URL not set, using placeholder mode")
+        engine = None
+        AsyncSessionLocal = None
+        return
+    
+    # Validate connection string format before attempting to create engine
+    if not db_url.startswith(("postgresql://", "postgresql+asyncpg://")):
+        logger.warning("Invalid DATABASE_URL format, using placeholder mode", url=db_url[:20] + "..." if len(db_url) > 20 else db_url)
         engine = None
         AsyncSessionLocal = None
         return
     
     try:
         # Create engine with connection pool that doesn't validate on creation
+        # Use connect_args to prevent immediate connection
         engine = create_async_engine(
-            settings.DATABASE_URL,
+            db_url,
             echo=False,
-            pool_pre_ping=True,  # Only check on use, not on creation
-            pool_size=5,  # Smaller pool
-            max_overflow=10,
-            pool_timeout=2,  # Short timeout
+            pool_pre_ping=False,  # Disable pre-ping to avoid connection attempts
+            pool_size=1,  # Minimal pool
+            max_overflow=0,  # No overflow to prevent extra connections
+            pool_timeout=1,  # Short timeout
             connect_args={
                 "server_settings": {"application_name": "model_management"},
-                "command_timeout": 2,  # Connection timeout
+                "command_timeout": 1,  # Connection timeout
             },
+            # Prevent connection on engine creation
+            future=True,
         )
         AsyncSessionLocal = async_sessionmaker(
             engine,
@@ -66,7 +77,7 @@ def _init_db_engine():
             expire_on_commit=False,
         )
         # Mark as available - actual connection will be tested on first use
-        logger.info("Database engine initialized (lazy connection)", url=settings.DATABASE_URL.split("@")[-1] if "@" in settings.DATABASE_URL else "unknown")
+        logger.info("Database engine initialized (lazy connection, no pre-connect)", url=db_url.split("@")[-1] if "@" in db_url else "unknown")
     except Exception as e:
         logger.warning("Database initialization failed, using placeholder mode", error=str(e))
         engine = None
