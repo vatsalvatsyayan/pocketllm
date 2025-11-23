@@ -54,3 +54,14 @@ export const LLM_ENDPOINTS = {
   MODELS: `${BASE_URL}/llm/models`,
   MODEL_INFO: (modelId: string) => `${BASE_URL}/llm/models/${modelId}`,
 } as const;
+
+/**
+ * Admin endpoints
+ */
+export const ADMIN_ENDPOINTS = {
+  METRICS: `${BASE_URL}/admin/metrics`,
+  USERS: `${BASE_URL}/admin/users`,
+  SESSIONS: `${BASE_URL}/admin/sessions`,
+  MESSAGES: `${BASE_URL}/admin/messages`,
+  TOGGLE_USER_ADMIN: (userId: string) => `${BASE_URL}/admin/users/${userId}/toggle-admin`,
+} as const;

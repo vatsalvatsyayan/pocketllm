@@ -56,7 +56,7 @@ async def lifespan(app):
         await SessionRepository(database).ensure_indexes()
         await MessageRepository(database).ensure_indexes()
         
-        # Create demo user if it doesn't exist
+        # Create demo user if it doesn't exist (as admin)
         user_repo = UserRepository(database)
         demo_email = "demo@pocketllm.com"
         existing_user = await user_repo.find_by_email(demo_email)
@@ -69,11 +69,21 @@ async def lifespan(app):
                     name="Demo User",
                     avatar=None,
                     password_hash=password_hash,
-                )
+                ),
+                is_admin=True  # Make demo user an admin
             )
-            logger.info("Demo user created", email=demo_email)
+            logger.info("Demo admin user created", email=demo_email)
         else:
-            logger.debug("Demo user already exists", email=demo_email)
+            # Ensure existing demo user is admin
+            existing_user_with_hash = await user_repo.find_by_email_with_hash(demo_email)
+            if existing_user_with_hash and not existing_user_with_hash.get("is_admin", False):
+                await user_repo.collection.update_one(
+                    {"email": demo_email.lower()},
+                    {"$set": {"is_admin": True, "updated_at": datetime.utcnow()}}
+                )
+                logger.info("Demo user upgraded to admin", email=demo_email)
+            else:
+                logger.debug("Demo admin user already exists", email=demo_email)
         
         yield
     finally:

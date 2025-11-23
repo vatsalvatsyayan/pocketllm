@@ -118,7 +118,7 @@ export const Dashboard: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-dark-400">Account Type:</span>
                 <span className="text-white font-medium capitalize">
-                  {user?.role || 'User'}
+                  {user?.is_admin ? 'Admin' : 'User'}
                 </span>
               </div>
               <div className="flex justify-between">

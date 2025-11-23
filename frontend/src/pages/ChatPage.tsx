@@ -14,7 +14,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { LogOut } from 'lucide-react';
+import { LogOut, Shield } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useChatStream } from '../hooks/useChatStream';
 import { chatService } from '../services/chat';
@@ -399,6 +399,17 @@ export const ChatPage: React.FC = () => {
           <span className="text-sm text-dark-400">
             {user?.name || user?.email}
           </span>
+          {user?.is_admin && (
+            <Button
+              onClick={() => navigate(ROUTES.ADMIN)}
+              variant="ghost"
+              size="sm"
+              className="gap-2"
+            >
+              <Shield size={16} />
+              Dashboard
+            </Button>
+          )}
           <Button
             onClick={handleLogout}
             variant="ghost"

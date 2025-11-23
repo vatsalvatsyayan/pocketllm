@@ -18,6 +18,9 @@ def _public_user(document: dict) -> dict:
         user["avatar"] = user.get("avatar_url")
     user.pop("full_name", None)
     user.pop("avatar_url", None)
+    # Ensure is_admin is included (defaults to False if not present)
+    if "is_admin" not in user:
+        user["is_admin"] = False
     return user
 
 
@@ -28,19 +31,31 @@ class UserRepository:
     async def ensure_indexes(self) -> None:
         await self.collection.create_index("email", unique=True)
 
-    async def create_user(self, payload: UserCreate) -> dict:
+    async def create_user(self, payload: UserCreate, is_admin: bool = False) -> dict:
         now = datetime.utcnow()
         document = {
             "email": payload.email.lower(),
             "full_name": payload.name,
             "avatar_url": str(payload.avatar) if payload.avatar else None,
             "password_hash": payload.password_hash,
+            "is_admin": is_admin,
             "created_at": now,
             "updated_at": now,
         }
         result = await self.collection.insert_one(document)
         document["_id"] = result.inserted_id
         return _public_user(document)
+    
+    async def update_user_admin_status(self, user_id: str, is_admin: bool) -> Optional[dict]:
+        """Update a user's admin status."""
+        object_id = parse_object_id(user_id)
+        result = await self.collection.update_one(
+            {"_id": object_id},
+            {"$set": {"is_admin": is_admin, "updated_at": datetime.utcnow()}}
+        )
+        if result.modified_count == 0:
+            return None
+        return await self.get_user(user_id)
 
     async def get_user(self, user_id: str) -> Optional[dict]:
         object_id = parse_object_id(user_id)

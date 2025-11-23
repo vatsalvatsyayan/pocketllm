@@ -11,7 +11,7 @@ export interface User {
   name: string;
   createdAt: string;
   // Add additional user properties as needed
-  role?: 'user' | 'admin';
+  is_admin?: boolean;
   avatar?: string;
 }
 

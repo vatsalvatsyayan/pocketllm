@@ -10,6 +10,7 @@ class UserBase(BaseModel):
     email: EmailStr
     name: Optional[str] = Field(None, alias="full_name")
     avatar: Optional[HttpUrl] = Field(None, alias="avatar_url")
+    is_admin: bool = Field(default=False, alias="is_admin")
 
     model_config = ConfigDict(populate_by_name=True)
 

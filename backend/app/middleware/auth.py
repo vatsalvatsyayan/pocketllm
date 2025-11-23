@@ -9,6 +9,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
 from app.config import settings
+from app.db import database_dependency
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
@@ -82,3 +83,28 @@ def get_current_user(payload: AuthPayload = Depends(decode_access_token)) -> Aut
 
 def get_current_user_id(payload: AuthPayload = Depends(get_current_user)) -> str:
     return payload.sub
+
+
+async def get_current_admin_user(
+    user_id: str = Depends(get_current_user_id),
+    database = Depends(database_dependency),
+) -> str:
+    """Verify that the current user is an admin."""
+    from app.repositories.users import UserRepository
+    
+    user_repo = UserRepository(database)
+    user = await user_repo.get_user(user_id)
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    
+    if not user.get("is_admin", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    
+    return user_id

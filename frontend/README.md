@@ -58,6 +58,7 @@ A professional authentication system built with React, TypeScript, and Tailwind 
 Email: demo@pocketllm.com
 Password: demo123
 ```
+Note Demo Credentials is an Admin, no new account will be an admin or view dashboard
 
 Or create a new account using the signup page!
 

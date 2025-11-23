@@ -41,6 +41,7 @@ export const ROUTES = {
   CHAT: '/chat',
   CHAT_SESSION: (sessionId: string) => `/chat/${sessionId}`,
   DASHBOARD: '/dashboard', // Legacy - redirects to /chat
+  ADMIN: '/admin',
   PROFILE: '/profile',
   SETTINGS: '/settings',
   NOT_FOUND: '/404',

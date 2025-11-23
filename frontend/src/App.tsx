@@ -11,6 +11,7 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
 import { NotFound } from './pages/NotFound';
+import { AdminDashboard } from './pages/AdminDashboard';
 import { ROUTES } from './utils/constants';
 
 // Import ChatPage
@@ -53,6 +54,16 @@ function App() {
           <Route
             path={ROUTES.DASHBOARD}
             element={<Navigate to={ROUTES.CHAT} replace />}
+          />
+
+          {/* Admin Dashboard */}
+          <Route
+            path={ROUTES.ADMIN}
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
           />
 
           {/* ========== Redirects ========== */}

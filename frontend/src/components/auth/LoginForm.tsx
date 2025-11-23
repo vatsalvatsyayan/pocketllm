@@ -91,7 +91,7 @@ export const LoginForm: React.FC = () => {
 
       {/* Demo Credentials Info */}
       <Alert variant="info">
-        <strong>Demo Credentials:</strong>
+        <strong>Demo Credentials: (Admin User)</strong>
         <br />
         Email: demo@pocketllm.com
         <br />

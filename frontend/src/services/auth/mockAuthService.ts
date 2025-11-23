@@ -37,14 +37,14 @@ const mockUsers: User[] = [
     email: 'demo@pocketllm.com',
     name: 'Demo User',
     createdAt: new Date().toISOString(),
-    role: 'user',
+    is_admin: true,
   },
   {
     id: '2',
     email: 'admin@pocketllm.com',
     name: 'Admin User',
     createdAt: new Date().toISOString(),
-    role: 'admin',
+    is_admin: true,
   },
 ];
 
@@ -123,7 +123,7 @@ export class MockAuthService implements IAuthService {
       email: credentials.email,
       name: credentials.name,
       createdAt: new Date().toISOString(),
-      role: 'user',
+      is_admin: false,
     };
 
     // Add to mock database
