@@ -17,6 +17,13 @@ def _public_message(document: dict) -> dict:
         doc["user_id"] = str(doc["user_id"])
     if "session_id" in doc:
         doc["session_id"] = str(doc["session_id"])
+    # Map created_at to timestamp for frontend compatibility
+    if "created_at" in doc:
+        # Convert datetime to ISO string if it's a datetime object
+        if isinstance(doc["created_at"], datetime):
+            doc["timestamp"] = doc["created_at"].isoformat()
+        else:
+            doc["timestamp"] = doc["created_at"]
     return doc
 
 

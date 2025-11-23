@@ -17,20 +17,53 @@ class L1CacheHandler:
         """Initialize L1 cache handler."""
         pass
     
-    def generate_hash(self, prompt: str, model_config: Optional[Dict[str, Any]] = None) -> str:
+    def generate_hash(
+        self, 
+        prompt: str, 
+        model_config: Optional[Dict[str, Any]] = None,
+        context: Optional[str] = None,
+        messages: Optional[list] = None,
+    ) -> str:
         """
-        Generate SHA256 hash for prompt and model config.
+        Generate SHA256 hash for prompt, context, and model config.
         
         Args:
             prompt: User prompt
             model_config: Optional model configuration
+            context: Full conversation context (if available)
+            messages: List of previous messages (if context not available)
             
         Returns:
             SHA256 hash string
         """
-        # Create hash input
+        # Build context string if not provided
+        if context is None and messages:
+            # Create a context signature from messages - use full content for accurate cache keys
+            # This ensures same prompt in different conversation contexts gets different cache keys
+            # IMPORTANT: Use the same format as build_context to ensure consistency
+            context_parts = []
+            for msg in messages:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                # Skip system messages in history (they're handled separately)
+                if role == "system":
+                    continue
+                # Use full content (not truncated) for accurate cache key generation
+                # Format matches build_context: "User: content" or "Assistant: content"
+                if role == "user":
+                    context_parts.append(f"User: {content}")
+                elif role == "assistant":
+                    context_parts.append(f"Assistant: {content}")
+            context = "\n".join(context_parts)  # Use newline separator to match build_context format
+        
+        # Create hash input - include FULL context to ensure same prompt in different contexts gets different cache key
+        # The context includes all previous messages, ensuring accurate cache hits
+        # Normalize context: if empty string, use empty; otherwise use as-is
+        context_str = context if context else ""
+        
         hash_input = {
             "prompt": prompt,
+            "context": context_str,  # Include FULL context in hash for accurate caching
             "model_config": model_config or {},
         }
         

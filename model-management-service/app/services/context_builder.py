@@ -27,23 +27,30 @@ class ContextBuilder:
         Args:
             messages: List of previous messages
             new_prompt: New user prompt
-            system_prompt: Optional system prompt
+            system_prompt: Optional system prompt (if not provided, uses default)
             
         Returns:
             Formatted context string
         """
         context_parts = []
         
-        # Add system prompt if provided
-        if system_prompt:
-            context_parts.append(f"System: {system_prompt}")
+        # Default system prompt to ensure accurate thinking and English responses
+        default_system_prompt = (
+            "You are a helpful AI assistant. Think carefully and accurately before responding. "
+            "Always respond in clear, correct English. Be precise and thoughtful in your answers."
+        )
+        
+        # Use provided system prompt or default
+        final_system_prompt = system_prompt or default_system_prompt
+        context_parts.append(f"System: {final_system_prompt}")
         
         # Add message history
         for message in messages:
             role = message.get("role", "user")
             content = message.get("content", "")
+            # Skip system messages in history (we already have the system prompt)
             if role == "system":
-                context_parts.append(f"System: {content}")
+                continue
             elif role == "user":
                 context_parts.append(f"User: {content}")
             elif role == "assistant":

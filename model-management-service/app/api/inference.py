@@ -16,6 +16,7 @@ from app.services.model_orchestrator import ModelOrchestrator
 from app.services.response_handler import ResponseHandler
 from app.services.queue_manager import RequestQueue
 from app.services.metrics import MetricsCollector
+from app.config import settings
 
 logger = structlog.get_logger()
 
@@ -43,10 +44,74 @@ async def chat_endpoint(
     session_id = request.session_id
     prompt = request.prompt
     
-    # Check cache first
+    # Fix race condition: Save user prompt BEFORE loading history
+    try:
+        await session_manager.save_message_to_database(
+            session_id,
+            "user",
+            prompt,
+            user_id=None
+        )
+    except Exception as e:
+        logger.warning("Failed to save user prompt to database", session_id=session_id, error=str(e))
+        # Continue anyway - prompt will be in context
+    
+    # Load session history - use messages from request if provided, otherwise load from database
+    if request.messages:
+        # Use messages provided by backend (from MongoDB)
+        messages = request.messages
+        logger.debug("Using messages from request", session_id=session_id, message_count=len(messages))
+    else:
+        # Fall back to loading from database (PostgreSQL)
+        try:
+            messages = await session_manager.load_session(session_id)
+            logger.debug("Loaded messages from database", session_id=session_id, message_count=len(messages))
+        except Exception as e:
+            logger.warning("Failed to load session history", session_id=session_id, error=str(e))
+            messages = []
+    
+    # Build context - this is needed for accurate cache key generation
+    # IMPORTANT: Build FULL context first (before truncation) for accurate cache keys
+    full_context = None
+    context = None
+    try:
+        if messages:
+            # Build full context first - use this for cache key generation
+            full_context = context_builder.build_context(messages, prompt)
+            
+            # Truncate context only for model input (after cache check)
+            # Use MAX_CONTEXT_TOKENS for input context (not max_tokens which is for response)
+            max_context_tokens = settings.MAX_CONTEXT_TOKENS
+            original_context_length = len(full_context)
+            context = context_builder.truncate_if_needed(full_context, max_context_tokens)
+            truncated_length = len(context)
+            
+            logger.info(
+                "Context built for model",
+                session_id=session_id,
+                message_count=len(messages),
+                original_length=original_context_length,
+                truncated_length=truncated_length,
+                max_context_tokens=max_context_tokens,
+                was_truncated=original_context_length != truncated_length,
+            )
+        else:
+            full_context = prompt
+            context = prompt
+            logger.debug("No message history, using prompt only", session_id=session_id)
+    except Exception as e:
+        logger.error("Failed to build context", session_id=session_id, error=str(e))
+        full_context = prompt  # Fallback to prompt only
+        context = prompt  # Fallback to prompt only
+    
+    # Check cache AFTER building full context - use FULL context (not truncated) for accurate cache key
+    # This ensures same prompt in different conversation contexts gets different cache keys
+    model_config = request.config or {"temperature": request.temperature, "max_tokens": request.max_tokens}
     cache_result = await cache_manager.check_cache(
         prompt,
-        request.config or {"temperature": request.temperature, "max_tokens": request.max_tokens}
+        model_config,
+        context=full_context,  # Pass FULL context (before truncation) for accurate cache key
+        messages=messages,  # Also pass messages as fallback
     )
     
     if cache_result:
@@ -77,41 +142,9 @@ async def chat_endpoint(
         )
     
     # Cache miss - generate from model
-    # Fix race condition: Save user prompt BEFORE loading history
-    try:
-        await session_manager.save_message_to_database(
-            session_id,
-            "user",
-            prompt,
-            user_id=None
-        )
-    except Exception as e:
-        logger.warning("Failed to save user prompt to database", session_id=session_id, error=str(e))
-        # Continue anyway - prompt will be in context
-    
-    # Load session history from database (now includes the prompt we just saved)
-    try:
-        messages = await session_manager.load_session(session_id)
-    except Exception as e:
-        logger.warning("Failed to load session history", session_id=session_id, error=str(e))
-        messages = []
-    
-    # Build context
-    try:
-        if messages:
-            context = context_builder.build_context(messages, prompt)
-            context = context_builder.truncate_if_needed(context, request.max_tokens)
-        else:
-            context = prompt
-    except Exception as e:
-        logger.error("Failed to build context", session_id=session_id, error=str(e))
-        context = prompt  # Fallback to prompt only
     
     # Generate response (non-streaming)
-    model_config = {
-        "temperature": request.temperature or 0.7,
-        "max_tokens": request.max_tokens,
-    }
+    # model_config already defined above
     
     full_response = ""
     tokens_generated = 0
@@ -178,6 +211,8 @@ async def chat_endpoint(
             latency_ms=latency_ms,
             tokens_generated=tokens_generated,
             tokens_prompt=tokens_prompt,
+            context=context,  # Pass context for cache storage
+            messages=messages,  # Pass messages for cache storage
         )
     except Exception as e:
         logger.error("Failed to process response", session_id=session_id, error=str(e))
@@ -206,10 +241,74 @@ async def chat_stream_endpoint(
         session_id = request.session_id
         prompt = request.prompt
         
-        # Check cache first
+        # Fix race condition: Save user prompt BEFORE loading history
+        try:
+            await session_manager.save_message_to_database(
+                session_id,
+                "user",
+                prompt,
+                user_id=None
+            )
+        except Exception as e:
+            logger.warning("Failed to save user prompt to database", session_id=session_id, error=str(e))
+            # Continue anyway - prompt will be in context
+        
+        # Load session history - use messages from request if provided, otherwise load from database
+        if request.messages:
+            # Use messages provided by backend (from MongoDB)
+            messages = request.messages
+            logger.debug("Using messages from request (streaming)", session_id=session_id, message_count=len(messages))
+        else:
+            # Fall back to loading from database (PostgreSQL)
+            try:
+                messages = await session_manager.load_session(session_id)
+                logger.debug("Loaded messages from database (streaming)", session_id=session_id, message_count=len(messages))
+            except Exception as e:
+                logger.warning("Failed to load session history", session_id=session_id, error=str(e))
+                messages = []
+        
+        # Build context - this is needed for accurate cache key generation
+        # IMPORTANT: Build FULL context first (before truncation) for accurate cache keys
+        full_context = None
+        context = None
+        try:
+            if messages:
+                # Build full context first - use this for cache key generation
+                full_context = context_builder.build_context(messages, prompt)
+                
+                # Truncate context only for model input (after cache check)
+                # Use MAX_CONTEXT_TOKENS for input context (not max_tokens which is for response)
+                max_context_tokens = settings.MAX_CONTEXT_TOKENS
+                original_context_length = len(full_context)
+                context = context_builder.truncate_if_needed(full_context, max_context_tokens)
+                truncated_length = len(context)
+                
+                logger.info(
+                    "Context built for model (streaming)",
+                    session_id=session_id,
+                    message_count=len(messages),
+                    original_length=original_context_length,
+                    truncated_length=truncated_length,
+                    max_context_tokens=max_context_tokens,
+                    was_truncated=original_context_length != truncated_length,
+                )
+            else:
+                full_context = prompt
+                context = prompt
+                logger.debug("No message history, using prompt only (streaming)", session_id=session_id)
+        except Exception as e:
+            logger.error("Failed to build context", session_id=session_id, error=str(e))
+            full_context = prompt  # Fallback to prompt only
+            context = prompt  # Fallback to prompt only
+        
+        # Check cache AFTER building full context - use FULL context (not truncated) for accurate cache key
+        # This ensures same prompt in different conversation contexts gets different cache keys
+        model_config = request.config or {"temperature": request.temperature, "max_tokens": request.max_tokens}
         cache_result = await cache_manager.check_cache(
             prompt,
-            request.config or {"temperature": request.temperature, "max_tokens": request.max_tokens}
+            model_config,
+            context=full_context,  # Pass FULL context (before truncation) for accurate cache key
+            messages=messages,  # Also pass messages as fallback
         )
         
         if cache_result:
@@ -231,41 +330,9 @@ async def chat_stream_endpoint(
             return
         
         # Cache miss - generate from model
-        # Fix race condition: Save user prompt BEFORE loading history
-        try:
-            await session_manager.save_message_to_database(
-                session_id,
-                "user",
-                prompt,
-                user_id=None
-            )
-        except Exception as e:
-            logger.warning("Failed to save user prompt to database", session_id=session_id, error=str(e))
-            # Continue anyway - prompt will be in context
-        
-        # Load session history from database (now includes the prompt we just saved)
-        try:
-            messages = await session_manager.load_session(session_id)
-        except Exception as e:
-            logger.warning("Failed to load session history", session_id=session_id, error=str(e))
-            messages = []
-        
-        # Build context
-        try:
-            if messages:
-                context = context_builder.build_context(messages, prompt)
-                context = context_builder.truncate_if_needed(context, request.max_tokens)
-            else:
-                context = prompt
-        except Exception as e:
-            logger.error("Failed to build context", session_id=session_id, error=str(e))
-            context = prompt  # Fallback to prompt only
         
         # Generate response with streaming
-        model_config = {
-            "temperature": request.temperature or 0.7,
-            "max_tokens": request.max_tokens,
-        }
+        # model_config already defined above
         
         full_response = ""
         tokens_generated = 0
@@ -311,6 +378,8 @@ async def chat_stream_endpoint(
                             latency_ms=latency_ms,
                             tokens_generated=tokens_generated,
                             tokens_prompt=tokens_prompt,
+                            context=context,  # Pass context for cache storage
+                            messages=messages,  # Pass messages for cache storage
                         )
                     except Exception as e:
                         logger.error("Failed to process response", session_id=session_id, error=str(e))
@@ -379,11 +448,58 @@ async def websocket_endpoint(websocket: WebSocket):
                 # Create cancellation token
                 cancellation_token = model_orchestrator.create_cancellation_token(session_id)
                 
-                # Check cache first
+                # Load session history - use messages from request if provided, otherwise load from database
+                messages = request_data.get("messages")
+                if messages:
+                    # Use messages provided by backend (from MongoDB)
+                    logger.debug("Using messages from request (WebSocket)", session_id=session_id, message_count=len(messages))
+                else:
+                    # Fall back to loading from database (PostgreSQL)
+                    try:
+                        messages = await session_manager.load_session(session_id)
+                        logger.debug("Loaded messages from database (WebSocket)", session_id=session_id, message_count=len(messages))
+                    except Exception as e:
+                        logger.warning("Failed to load session history", session_id=session_id, error=str(e))
+                        messages = []
+                
+                # Save user prompt to database (non-blocking, after loading history)
+                asyncio.create_task(
+                    session_manager.save_message_to_database(
+                        session_id,
+                        "user",
+                        prompt,
+                        user_id=None
+                    )
+                )
+                
+                # Build context - needed for accurate cache key generation
+                # IMPORTANT: Build FULL context first (before truncation) for accurate cache keys
+                full_context = None
+                context = None
+                try:
+                    if messages:
+                        # Build full context first - use this for cache key generation
+                        full_context = context_builder.build_context(messages, prompt)
+                        
+                        # Truncate context only for model input (after cache check)
+                        max_context_tokens = settings.MAX_CONTEXT_TOKENS
+                        context = context_builder.truncate_if_needed(full_context, max_context_tokens)
+                    else:
+                        full_context = prompt
+                        context = prompt
+                except Exception as e:
+                    logger.error("Failed to build context", session_id=session_id, error=str(e))
+                    full_context = prompt  # Fallback to prompt only
+                    context = prompt  # Fallback to prompt only
+                
+                # Check cache AFTER building full context - use FULL context (not truncated) for accurate cache key
                 start_time = time.time()
+                model_config = request_data.get("model_settings") or request_data.get("config")
                 cache_result = await cache_manager.check_cache(
                     prompt,
-                    request_data.get("model_settings") or request_data.get("config"),
+                    model_config,
+                    context=full_context,  # Pass FULL context (before truncation) for accurate cache key
+                    messages=messages,  # Also pass messages as fallback
                 )
                 
                 if cache_result:
@@ -419,47 +535,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     continue
                 
                 # Cache miss - generate from model
-                # Load session history from database first
-                messages = await session_manager.load_session(session_id)
-                
-                # Save user prompt to database (non-blocking, after loading history)
-                asyncio.create_task(
-                    session_manager.save_message_to_database(
-                        session_id,
-                        "user",
-                        prompt,
-                        user_id=None
-                    )
-                )
-                
-                # Build context: if history exists, truncate and use it; otherwise use prompt directly
-                if messages:
-                    # History exists - truncate it and add new prompt
-                    context = context_builder.build_context(messages, prompt)
-                    context = context_builder.truncate_if_needed(
-                        context,
-                        request_data.get("max_tokens"),
-                    )
-                    logger.debug(
-                        "Using session history",
-                        session_id=session_id,
-                        history_messages=len(messages),
-                        prompt_length=len(prompt)
-                    )
-                else:
-                    # No history or DB unavailable - use prompt directly
-                    context = prompt
-                    logger.debug(
-                        "No history found, using prompt directly",
-                        session_id=session_id,
-                        prompt_length=len(prompt)
-                    )
-                
-                # Generate response with streaming
-                model_config = {
-                    "temperature": request_data.get("temperature", 0.7),
-                    "max_tokens": request_data.get("max_tokens"),
-                }
+                # Context already built above for cache check
+                # model_config already defined above
                 
                 full_response = ""
                 tokens_generated = 0
@@ -497,6 +574,8 @@ async def websocket_endpoint(websocket: WebSocket):
                             latency_ms=latency_ms,
                             tokens_generated=tokens_generated,
                             tokens_prompt=tokens_prompt,
+                            context=context,  # Pass context for cache storage
+                            messages=messages,  # Pass messages for cache storage
                         )
                     else:
                         # Send token

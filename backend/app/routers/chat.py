@@ -159,13 +159,27 @@ async def stream_chat(
         MessageCreate(role="user", content=payload.prompt)
     )
 
+    # 2.5. Load message history to pass to model-management-service
+    messages = await message_repo.list_messages(
+        session_id=session_id,
+        user_id=user_id,
+        limit=50,  # Match MAX_HISTORY_MESSAGES
+        offset=0,
+    )
+    # Format messages for model-management-service (only role and content)
+    message_history = [
+        {"role": msg.get("role"), "content": msg.get("content")}
+        for msg in messages
+    ]
+
     # 3. Prepare Model Request
     model_payload = {
         "session_id": session_id,
         "prompt": payload.prompt,
         "stream": True,
         "max_tokens": 1000,
-        "temperature": 0.7
+        "temperature": 0.7,
+        "messages": message_history,  # Pass message history for context
     }
 
     # 4. Stream and Accumulate
@@ -239,12 +253,26 @@ async def send_message(
         MessageCreate(role="user", content=payload.prompt)
     )
 
+    # 2.5. Load message history to pass to model-management-service
+    messages = await message_repo.list_messages(
+        session_id=session_id,
+        user_id=user_id,
+        limit=50,  # Match MAX_HISTORY_MESSAGES
+        offset=0,
+    )
+    # Format messages for model-management-service (only role and content)
+    message_history = [
+        {"role": msg.get("role"), "content": msg.get("content")}
+        for msg in messages
+    ]
+
     # 3. Prepare Model Request
     model_payload = {
         "session_id": session_id,
         "prompt": payload.prompt,
         "stream": False,
         "temperature": payload.temperature,
+        "messages": message_history,  # Pass message history for context
     }
     if payload.max_tokens:
         model_payload["max_tokens"] = payload.max_tokens

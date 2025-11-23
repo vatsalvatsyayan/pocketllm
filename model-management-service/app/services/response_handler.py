@@ -28,6 +28,8 @@ class ResponseHandler:
         latency_ms: float = 0.0,
         tokens_generated: int = 0,
         tokens_prompt: int = 0,
+        context: Optional[str] = None,
+        messages: Optional[list] = None,
     ) -> InferenceResponse:
         """
         Process response and store in caches and database.
@@ -71,8 +73,26 @@ class ResponseHandler:
         
         if not cache_hit:
             # Only cache if it wasn't a cache hit
+            # Load messages if not provided (for context-aware caching)
+            if messages is None and session_id:
+                try:
+                    messages = await self.session_manager.load_session(session_id)
+                except Exception as e:
+                    logger.warning("Failed to load messages for cache storage", error=str(e))
+                    messages = []
+            
+            # Build context if not provided
+            if context is None and messages:
+                from app.services.context_builder import ContextBuilder
+                context_builder = ContextBuilder()
+                try:
+                    context = context_builder.build_context(messages, prompt)
+                except Exception as e:
+                    logger.warning("Failed to build context for cache storage", error=str(e))
+                    context = None
+            
             task = asyncio.create_task(
-                self._store_in_caches(prompt, response, model_config)
+                self._store_in_caches(prompt, response, model_config, context, messages)
             )
             task.add_done_callback(log_task_error)
         
@@ -109,10 +129,18 @@ class ResponseHandler:
         prompt: str,
         response: str,
         model_config: Optional[Dict[str, Any]],
+        context: Optional[str] = None,
+        messages: Optional[list] = None,
     ):
-        """Store response in L1 and L2 caches."""
+        """Store response in L1 and L2 caches with context."""
         try:
-            await self.cache_manager.store_in_cache(prompt, response, model_config)
+            await self.cache_manager.store_in_cache(
+                prompt, 
+                response, 
+                model_config,
+                context=context,
+                messages=messages,
+            )
         except Exception as e:
             logger.error("Failed to store in caches", error=str(e))
     

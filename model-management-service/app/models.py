@@ -54,6 +54,10 @@ class InferenceRequest(BaseModel):
     )
     max_tokens: Optional[int] = Field(default=None, description="Maximum tokens to generate")
     temperature: Optional[float] = Field(default=0.7, ge=0.0, le=2.0)
+    messages: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="Optional message history from backend (if provided, will be used instead of loading from database)"
+    )
 
 
 class InferenceResponse(BaseModel):
