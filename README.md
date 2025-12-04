@@ -1,94 +1,161 @@
 # PocketLLM
 
-A complete, self-contained LLM chat platform using Ollama and Docker. Features a React frontend, FastAPI backend, intelligent caching, and streaming chat responses.
+A self-contained LLM chat platform with React frontend, FastAPI backend, and Ollama model server. Optimized for limited resources (4 vCPUs, 16 GB RAM).
 
-## What This Does
+## Quick Start
 
-- **Frontend**: React + TypeScript web application with authentication and chat interface
-- **Backend**: FastAPI gateway with JWT auth, rate limiting, and MongoDB persistence
-- **Model Management**: Intelligent LLM inference service with L1/L2 caching and request queuing
-- **Model Server**: Ollama running TinyLlama (or custom model) in Docker
-- **Databases**: MongoDB for user/session data, PostgreSQL (optional) for message history, Redis for caching
-- **Full Integration**: All services containerized and orchestrated via Docker Compose
+### Prerequisites
 
-## Prerequisites
+- **Docker Desktop** (Mac/Windows) or **Docker Engine** (Linux)
+- **System Requirements**: 4 vCPUs, 16 GB RAM minimum
+- **Disk Space**: ~10 GB
 
-- Docker Desktop (Mac/Windows) or Docker Engine (Linux)
-
-Check Docker works:
+Verify Docker is installed:
 ```bash
 docker --version
-docker run hello-world
+docker compose --version
 ```
 
-If Docker Desktop isn't running, open it and wait for "Running" status.
+### Running the Application
 
-## Setup
-
+1. **Build and launch all services:**
 ```bash
-git clone <repo-url>
 cd pocketllm
 docker compose up --build
 ```
 
-This brings up all services:
+First-time startup takes 5-10 minutes to download the TinyLlama model (~637 MB).
 
-- **`frontend`** (port 5173) – React web application with authentication and chat UI
-- **`backend`** (port 9000) – FastAPI gateway with JWT auth, rate limiting, MongoDB persistence
-- **`model-management`** (port 8000) – LLM inference service with intelligent caching (L1/L2)
-- **`model`** (port 11434) – Ollama model server running TinyLlama
-- **`redis`** (port 6379) – Cache and queue management
-- **`mongo`** (port 27017) – User, session, and message storage
-- **`postgres`** (port 5433) – Optional message history backup
+2. **Access the application:**
+   - **Frontend**: http://localhost:5173
+   - **Backend API**: http://localhost:9000/api/v1
 
-## Access the Application
+3. **Login with demo credentials:**
+   - **Email**: `demo@pocketllm.com`
+   - **Password**: `demo123`
+   
+   Or create a new account at http://localhost:5173/signup
 
-Once all services are running:
+4. **Stop services:**
+```bash
+# Press Ctrl+C, then:
+docker compose down
 
-1. **Frontend**: Open http://localhost:5173 in your browser
-2. **Backend API**: http://localhost:9000/api/v1
-3. **Model Management**: http://localhost:8000/api/v1
-4. **Ollama Model**: http://localhost:11434
+# To remove all data:
+docker compose down -v
+```
 
-## First Time Setup
+### Monitor Resources
 
-1. **Create an account**: Sign up at http://localhost:5173/signup
-2. **Login**: Use your credentials to access the chat interface
-3. **Start chatting**: Create a new session and start a conversation
+Check resource usage (expected: ~4-6 GB idle, ~8-10 GB during inference):
+```bash
+docker stats
+```
 
-The frontend is pre-configured to connect to the backend running in Docker.
+## What This Is
 
-## API Endpoints
+PocketLLM is a complete chat application demonstrating integration of:
+- Modern web frontend (React + TypeScript)
+- RESTful API backend (FastAPI + MongoDB)
+- LLM inference service with intelligent caching
+- Ollama model server running TinyLlama (1.1B parameters)
 
-### Backend API (http://localhost:9000/api/v1)
+All services run in Docker containers and communicate via internal networks.
 
-**Authentication:**
-- `POST /auth/signup` - Create new user account
-- `POST /auth/login` - Login and get JWT token
-- `GET /auth/me` - Get current user info
-- `POST /auth/refresh` - Refresh JWT token
+## Source Code Structure
 
-**Chat:**
-- `GET /chat/sessions` - List user's chat sessions
-- `POST /chat/sessions` - Create new chat session
-- `GET /chat/sessions/{id}` - Get session details
-- `POST /chat/stream` - Stream chat response (SSE)
-- `POST /chat/message` - Non-streaming chat response
+```
+pocketllm/
+├── frontend/              # React + TypeScript web UI
+│   ├── src/
+│   │   ├── components/   # UI components (auth, chat, layout)
+│   │   ├── pages/        # Route pages (Login, ChatPage, Dashboard)
+│   │   ├── services/     # API client layer
+│   │   └── hooks/        # Custom React hooks
+│   └── Dockerfile
+│
+├── backend/              # FastAPI gateway service
+│   ├── app/
+│   │   ├── routers/     # API endpoints (auth, chat, sessions)
+│   │   ├── middleware/  # Auth, CORS, rate limiting
+│   │   ├── repositories/# Database access layer
+│   │   └── schemas/     # Request/response models
+│   └── Dockerfile
+│
+├── model-management-service/  # LLM inference orchestration
+│   ├── app/
+│   │   ├── services/    # Cache, queue, model client
+│   │   └── api/         # Inference endpoints
+│   └── Dockerfile
+│
+├── tinyllama/           # Ollama model configuration
+│   └── Dockerfile
+│
+└── docker-compose.yml   # Orchestrates all services
+```
 
-**Testing with curl:**
+**Tech Stack**: React 18, FastAPI, MongoDB, Redis, PostgreSQL, Ollama (TinyLlama 1.1B)
+
+## Services Running
+
+| Service | Port | Description |
+|---------|------|-------------|
+| frontend | 5173 | React web application |
+| backend | 9000 | FastAPI gateway + auth |
+| model-management | 8000 | LLM inference + caching |
+| model (Ollama) | 11434 | TinyLlama model server |
+| mongo | 27017 | User/session database |
+| postgres | 5433 | Message history |
+| redis | 6379 | Caching layer |
+
+## Architecture
+
+```
+Browser → Frontend (React) → Backend (FastAPI) → Model Management → Ollama (TinyLlama)
+                                     ↓                    ↓
+                                  MongoDB            Redis Cache
+                                  PostgreSQL
+```
+
+Request flow:
+1. User authenticates via frontend (JWT)
+2. Backend validates token, manages sessions
+3. Model Management checks cache, queues requests
+4. Ollama generates response with TinyLlama
+5. Response streams back through all layers
+
+## Key Features
+
+- **Authentication**: JWT-based auth with user management
+- **Chat Sessions**: Persistent conversation history
+- **Streaming Responses**: Real-time SSE streaming from LLM
+- **Intelligent Caching**: L1/L2 cache reduces repeated inference
+- **Rate Limiting**: Prevents resource overload
+- **Queue Management**: Handles concurrent requests efficiently
+
+## Resource Usage on 4 vCPU / 16 GB RAM
+
+Expected performance:
+- **Idle**: ~4-6 GB RAM, <10% CPU
+- **Active Inference**: ~8-10 GB RAM, 50-150% CPU
+- **TinyLlama Model**: ~2-4 GB RAM (optimized for limited resources)
+
+TinyLlama is specifically chosen for compatibility with 16 GB RAM systems. Larger models (Llama 3 8B) require more resources.
+
+## API Testing Example
+
 ```bash
 # Login
 TOKEN=$(curl -X POST http://localhost:9000/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"password"}' \
+  -d '{"email":"demo@pocketllm.com","password":"demo123"}' \
   | jq -r '.token')
 
 # Create session
 SESSION_ID=$(curl -X POST http://localhost:9000/api/v1/chat/sessions \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"title":"Test Chat"}' \
-  | jq -r '.id')
+  -d '{"title":"Test Chat"}' | jq -r '.id')
 
 # Send message (streaming)
 curl -X POST http://localhost:9000/api/v1/chat/stream \
@@ -97,54 +164,20 @@ curl -X POST http://localhost:9000/api/v1/chat/stream \
   -d "{\"sessionId\":\"$SESSION_ID\",\"prompt\":\"Hello!\"}"
 ```
 
-## Change Configuration
-
-Edit the `.env` file to swap models, change port, etc.
-
-Then rebuild:
-```bash
-docker compose build --no-cache
-docker compose up
-```
-
-## Stop the Service
-
-```bash
-Ctrl + C
-docker compose down
-```
-
 ## Troubleshooting
 
-### PostgreSQL Database Errors
-
-If you see errors like "database 'user' does not exist", the PostgreSQL volume may need to be reset:
-
+**Services not starting?** Check logs:
 ```bash
-# Stop all services
-docker compose down
+docker compose logs -f <service-name>
+```
 
-# Remove the PostgreSQL volume (WARNING: This deletes all PostgreSQL data)
-docker volume rm pocketllm_postgres_data
-
-# Start services again
+**Database errors?** Reset volumes:
+```bash
+docker compose down -v
 docker compose up --build
 ```
 
-### Demo User
-
-A demo user is automatically created on backend startup:
-- **Email**: `demo@pocketllm.com`
-- **Password**: `demo123`
-
-### Service Health Checks
-
-All services have health checks. Check service status:
+**Check service health:**
 ```bash
 docker compose ps
-```
-
-View logs for a specific service:
-```bash
-docker compose logs -f <service-name>
 ```
